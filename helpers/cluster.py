@@ -14,3 +14,9 @@ def get_default_partition(cluster: str):
         return "high_mem_cd"
     elif cluster == "B587":
         return "long"
+
+def get_fast_partition(cluster: str):
+    if cluster == "CADES":
+        return "high_mem_cd"
+    elif cluster == "B587":
+        return "short"

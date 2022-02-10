@@ -3,18 +3,27 @@
 import logging
 import subprocess
 
-def submit(command: str, jobname: str, logfile: str, partition: str, arraysize: int = 0, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1) -> int:
+def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1) -> str:
     logging.info("Using logfile: %s", logfile)
-    submitcmd = "sbatch -A birthright -N 1 -n 1 -c 1"
+    submitcmd = "sbatch "
+    if cluster == "CADES":
+        submitcmd += " -A birthright" 
+    submitcmd += " -N 1 -n 1 -c {}".format(cpus)
     submitcmd += " --partition {}".format(partition)
     submitcmd += " -J {}".format(jobname)
     submitcmd += " -o {}".format(logfile)
-    submitcmd += " --time={}".format(timelimit)
-    submitcmd += " --mem={}".format(memory)
-    if arraysize > 0:
-        submitcmd += " --array=0-{}".format(arraysize-1)
+    if cluster == "CADES":
+        submitcmd += " --time={}".format(timelimit)
+        submitcmd += " --mem={}".format(memory)
     if dependency > -1:
         submitcmd += " -d {}".format(dependency)
+    return submitcmd
+
+
+def submit(command: str, cluster: str, jobname: str, logfile: str, partition: str, arraysize: int = 0, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1) -> int:
+    submitcmd = ncorejob(cluster, 1, jobname, logfile, partition, timelimit, memory, dependency)
+    if arraysize > 0:
+        submitcmd += " --array=0-{}".format(arraysize-1)
     submitcmd += " {}".format(command)
     submitResult = subprocess.run(submitcmd, shell=True, stdout=subprocess.PIPE)
     sout = submitResult.stdout.decode("utf-8")
@@ -22,17 +31,9 @@ def submit(command: str, jobname: str, logfile: str, partition: str, arraysize: 
     jobid = int(toks[len(toks)-1])
     return jobid
 
-def submit_range(command: str, jobname: str, logfile: str, partition: str, arrayrange: dict, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1) -> int:
-    logging.info("Using logfile: %s", logfile)
-    submitcmd = "sbatch -A birthright -N 1 -n 1 -c 1"
-    submitcmd += " --partition {}".format(partition)
-    submitcmd += " -J {}".format(jobname)
-    submitcmd += " -o {}".format(logfile)
-    submitcmd += " --time={}".format(timelimit)
-    submitcmd += " --mem={}".format(memory)
+def submit_range(command: str, cluster: str, jobname: str, logfile: str, partition: str, arrayrange: dict, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1) -> int:
+    submitcmd = ncorejob(cluster, 1, jobname, logfile, partition, timelimit, memory, dependency)
     submitcmd += " --array={}-{}".format(arrayrange["first"], arrayrange["last"])
-    if dependency > -1:
-        submitcmd += " -d {}".format(dependency)
     submitcmd += " {}".format(command)
     submitResult = subprocess.run(submitcmd, shell=True, stdout=subprocess.PIPE)
     sout = submitResult.stdout.decode("utf-8")
