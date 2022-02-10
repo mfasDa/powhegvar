@@ -1,0 +1,16 @@
+executable            = RunPOWHEG.sh
+arguments             = $(ClusterID) $(ProcId) 
+
+should_transfer_files = YES
+transfer_input_files = powheg.input, RunPythia8.C
+when_to_transfer_output = ON_EXIT
+
+transfer_output_files = $(ProcId)
+transfer_output_remaps = "$(ProcId)=/eos/user/h/hahassan/POWHEG/pp13TeVdijet_CT14nlo/$(ProcId)"
+
+output                = /afs/cern.ch/user/h/hahassan/log/output/std.$(ClusterId).$(ProcId).out
+error                 = /afs/cern.ch/user/h/hahassan/log/error/std.$(ClusterId).$(ProcId).err
+log                   = /afs/cern.ch/user/h/hahassan/log/std.$(ClusterId).log
+
++JobFlavour = "nextweek"
+queue 200

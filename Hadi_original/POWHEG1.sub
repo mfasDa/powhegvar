@@ -1,0 +1,8 @@
+executable            = RunPOWHEG1.sh
+arguments             = $(ClusterID) $(ProcId) 
+output                = /afs/cern.ch/user/h/hahassan/log/output/hello.$(ClusterId).$(ProcId).out
+error                 = /afs/cern.ch/user/h/hahassan/log/error/hello.$(ClusterId).$(ProcId).err
+log                   = /afs/cern.ch/user/h/hahassan/log/hello.$(ClusterId).log
++JobFlavour = "tomorrow"
+queue 200
+

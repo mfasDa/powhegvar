@@ -1,0 +1,1 @@
+./submitAllPythia.sh /lustre/or-scratch/cades-birthright/mfasel_alice/POWHEGvar/production/v1_CT14nlo /lustre/or-scratch/cades-birthright/mfasel_alice/POWHEGvar/production/v1_CT14nlo/Pythia_TUNE_CMSUE_HERAPDF POWHEG_r3898 TUNE:16
