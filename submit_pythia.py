@@ -3,10 +3,10 @@
 import argparse
 import logging
 import os
-import subprocess
 import sys
 from helpers.setup_logging import setup_logging
-from helpers.cluster import get_cluster, get_default_partition
+from helpers.cluster import get_cluster, get_default_partition, get_fast_partition
+from helpers.slurm import submit
 
 repo = os.path.abspath(os.path.dirname(sys.argv[0]))
 
@@ -59,29 +59,6 @@ def build_logfile(logfile: str):
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
     return logfile
-
-def submit(command: str, cluster: str, jobname: str, logfile: str, partition: str, arraysize: int = 0, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1) -> int:
-    logging.info("Using logfile: %s", logfile)
-    submitcmd = "sbatch "
-    if cluster == "CADES":
-        submitcmd += " -A birthright" 
-    submitcmd += " -N 1 -n 1 -c 1"
-    submitcmd += " --partition {}".format(partition)
-    submitcmd += " -J {}".format(jobname)
-    submitcmd += " -o {}".format(logfile)
-    if cluster == "CADES":
-        submitcmd += " --time={}".format(timelimit)
-        submitcmd += " --mem={}".format(memory)
-    if arraysize > 0:
-        submitcmd += " --array=0-{}".format(arraysize-1)
-    if dependency > -1:
-        submitcmd += " -d {}".format(dependency)
-    submitcmd += " {}".format(command)
-    submitResult = subprocess.run(submitcmd, shell=True, stdout=subprocess.PIPE)
-    sout = submitResult.stdout.decode("utf-8")
-    toks = sout.split(" ")
-    jobid = int(toks[len(toks)-1])
-    return jobid
 
 def submit_clean(cluster: str, outputbase: str, partition: str, dependency: int) -> int:
     script = os.path.join(repo, "pythia_clean.sh")
@@ -143,6 +120,7 @@ if __name__ == "__main__":
     cluster = get_cluster()
     logging.info("Submitting for cluster %s", cluster)
     partition = args.partition if args.partition != "default" else get_default_partition(cluster)
+    fast_partition = get_fast_partition(cluster)
     
     if not find_pythiaversion(args.pythiaversion):
         logging.error("PYTHIA version %s not supported", args.pythiaversion)
@@ -153,7 +131,7 @@ if __name__ == "__main__":
         os.makedirs(outputdir, 0o755)
     pythiajob = submit_pythia(cluster, outputdir, args.inputdir, args.nchunk, args.pythiaversion, args.variation, partition, args.timelimit)
     logging.info("Submitted PYTHIA job under ID %d", pythiajob)
-    mergejob = submit_merge(cluster, outputdir, "Pythia8JetSpectra.root", partition, pythiajob)
+    mergejob = submit_merge(cluster, outputdir, "Pythia8JetSpectra.root", fast_partition, pythiajob)
     logging.info("Submitted merging job under ID %d", mergejob)
-    cleanjob = submit_clean(cluster, outputdir, partition, pythiajob)
+    cleanjob = submit_clean(cluster, outputdir, fast_partition, pythiajob)
     logging.info("Submitted cleaning job under ID %d", cleanjob)
