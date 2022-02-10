@@ -5,11 +5,11 @@ import logging
 import os
 from submit_pythia import submit_merge
 from helpers.setup_logging import setup_logging
-from helpers.cluster import get_cluster, get_default_partition
+from helpers.cluster import get_cluster, get_fast_partition
 
 def do_submit_merge(inputdir: str, rootfile: str = "Pythia8JetSpectra.root"):
     cluster = get_cluster()
-    mergejob = submit_merge(cluster, inputdir, rootfile, get_default_partition(cluster), -1)
+    mergejob = submit_merge(cluster, inputdir, rootfile, get_fast_partition(cluster), -1)
     logging.info("Submitted merging job under ID %d", mergejob)
 
 if __name__ == "__main__":
