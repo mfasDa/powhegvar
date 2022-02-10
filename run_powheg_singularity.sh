@@ -1,23 +1,35 @@
 #! /bin/bash
 
-SOURCEDIR=$1
-OUTPUTBASE=$2
-POWHEG_VERSION=$3
-SLOT=$4
+CLUSTER=$1
+SOURCEDIR=$2
+OUTPUTBASE=$3
+POWHEG_VERSION=$4
+POWHEG_INPUT=$5
+SLOT=$6
 
-source /opt/rh/devtoolset-7/enable
-
-module use /nfs/data/alice-dev/mfasel_alice/simsoft/Modules/
-module load POWHEG/$POWHEG_VERSION
+MYHOME=
+if [ "$CLUSTER" == "CADES" ]; then
+    MYHOME=/nfs/home/mfasel_alice
+    source /opt/rh/devtoolset-7/enable
+    SIMSOFT=/nfs/data/alice-dev/mfasel_alice/simsoft
+    module use $SIMSOFT/Modules/
+    module load POWHEG/$POWHEG_VERSION
+else 
+    MYHOME=/nfs/home/mfasel_alice
+    source $MYHOME/alice_setenv
+    ALIENV=`which alienv`
+    eval `$ALIENV --no-refresh printenv powheg/latest`
+fi
+module list
 
 # Setup LHAPDF 
-source /nfs/home/mfasel_alice/lhapdf_data_setenv 
+source $MYHOME/lhapdf_data_setenv 
 
 JOBDIR=$(printf "%s/POWHEG_%s/%04d" $OUTPUTBASE $POWHEG_VERSION $SLOT)
 if [ ! -d $JOBDIR ]; then mkdir -p $JOBDIR; fi
 cd $JOBDIR
 
-cp $SOURCEDIR/powheg.input $PWD
+cp $POWHEG_INPUT $PWD/powheg.input
 
 # Set the randomseed
 echo "iseed $RANDOM" >> powheg.input
