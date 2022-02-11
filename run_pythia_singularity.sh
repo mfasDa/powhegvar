@@ -9,23 +9,29 @@ VARIATION=$6
 VARVALUE=$7
 
 PYTHIAFROMROOT=0
+INITALICE=0
 MACRO=$SOURCEDIR/RunPythia8.C
 if [ "x$(echo $PYVERSION | grep ROOT)" != "x" ]; then
+	let "INITALICE=1"
 	MACRO=$SOURCEDIR/RunPythia8FromROOT.C
-	let "PYTHIAFROMROOT=1"
 elif [ "x$(echo $PYVERSION | grep FromALICE)" != "x" ]; then
-	ALIENV=`which alienv`
-    eval `$ALIENV --no-refresh printenv pythia/latest ROOT/latest fastjet/latest`
+	let "INITALICE=1"
 fi
 
 MYHOME=/home/mfasel_alice
 if [ "$CLUSTER" == "CADES" ]; then
 	MYHOME=/home/mfasel_alice
-	SIMSOFT=/nfs/data/alice-dev/mfasel_alice/simsoft
-	module use $SIMSOFT/Modules
-	if [ $PYTHIAFROMROOT -gt 0 ]; then 
-		module load ROOT/v6-24-06_withPYTHIAv8306
-	else 
+elif [ "$CLUSTER" == "B587" ]; then
+	MYHOME=/software/mfasel
+fi
+source $MYHOME/alice_setenv
+if [ $INITALICE -gt 0 ]; then
+	ALIENV=`which alienv`
+	eval `$ALIENV --no-refresh printenv rootpythia8/latest fastjet/latest`
+else
+	if [ "$CLUSTER" == "CADES" ]; then
+		SIMSOFT=/nfs/data/alice-dev/mfasel_alice/simsoft
+		module use $SIMSOFT/Modules
 		module load ROOT/v6-24-06
 		module load PYTHIA/$PYVERSION
 		if [ "$PYVERSION" == "v8245" ]; then
@@ -35,10 +41,7 @@ if [ "$CLUSTER" == "CADES" ]; then
 			MACRO=$SOURCEDIR/RunPythia8186.C
 		fi
 	fi
-elif [ "$CLUSTER" == "B587" ]; then
-	MYHOME=/software/mfasel
 fi
-source $MYHOME/alice_setenv
 module list
 source $MYHOME/lhapdf_data_setenv
 
@@ -64,6 +67,10 @@ fi
 
 if [ "$VARIATION" == "MPI" ]; then
 	export CONFIG_MPI=$VARVALUE
+fi
+
+if [ "$VARIATION" == "PTCUT" ]; then
+	export CONFIG_PTCUT=$VARVALUE
 fi
 
 

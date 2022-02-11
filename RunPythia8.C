@@ -254,7 +254,16 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
     if(gSystem->Getenv("CONFIG_MPI")) {
         int val = atoi(gSystem->Getenv("CONFIG_MPI"));
         if(val > 0) {
+            std::cout << "Setting MPI" << std::endl;
             pythia.setMPI();
+        } 
+    }
+    bool applyPtCut = false;
+    if(gSystem->Getenv("CONFIG_PTCUT")) {
+        int val = atoi(gSystem->Getenv("CONFIG_PTCUT"));
+        if(val > 0) {
+            std::cout << "Applying det. level ptcut" << std::endl;
+            applyPtCut = true;
         } 
     }
     pythia.configure(inputfile, sseed);
@@ -408,8 +417,17 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
             //if (abs(eta) > 0.9)
             if (std::abs(eta) > kMaxEta)
                 continue;
-            // if (pt < 0.15)
-            //   continue;
+            if(applyPtCut) {
+                if(charge == 0) {
+                    // ptcut on neutral particles
+                    if (pt < 0.3)
+                       continue;
+                } else {
+                    // ptcut on charged particles
+                    if (pt < 0.15)
+                       continue;
+                }
+            }
 
             input_particles.push_back(fastjet::PseudoJet(part->Px(), part->Py(), part->Pz(), part->Energy()));
         }
