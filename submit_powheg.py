@@ -19,7 +19,7 @@ def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: st
     executable = os.path.join(repo, "powheg_steer.sh")
     runcmd = "{} {} {} {} {} {}".format(executable, cluster, repo, workdir, powheg_version, powheg_input)
     jobname = "pjj13T_{}".format(powheg_version)
-    return submit_range(runcmd, jobname, logfile, "high_mem_cd", {"first": minslot, "last": minslot+njobs-1}, "{}:00:00".format(hours), "{}G".format(mem))
+    return submit_range(runcmd, cluster, jobname, logfile, "high_mem_cd", {"first": minslot, "last": minslot+njobs-1}, "{}:00:00".format(hours), "{}G".format(mem))
 
 def find_powheg_releases() -> list:
     simpath = "/nfs/data/alice-dev/mfasel_alice/simsoft/"
@@ -37,6 +37,7 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--njobs", metavar="NJOBS", type=int, default=200, help="Number of slots")
     parser.add_argument("-m", "--minslot", metavar="MINSLOT", type=int, default=0, help="Min. slot ID")
     parser.add_argument("-v", "--version", metavar="VERSION", type=str, default="all", help="POWEHG version")
+    parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="Partition")
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
@@ -59,6 +60,6 @@ if __name__ == "__main__":
         releases.append(args.version)
         print("Simulating with POWHEG: {}".format(releases))
     for pwhg in releases:
-        pwhgjob = submit_job(args.workdir, pwhg, args.input, args.njobs, args.minslot, args.mem, args.hours)
+        pwhgjob = submit_job(cluster, args.workdir, pwhg, args.input, args.njobs, args.minslot, args.mem, args.hours)
         logging.info("Job ID for POWHEG %s: %d", pwhg, pwhgjob)
 	
