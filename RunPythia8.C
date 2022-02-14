@@ -39,7 +39,7 @@ Bool_t IsDMeson(Int_t pc);
 
 class PythiaHandler {
 public:
-    PythiaHandler() : mEngine(), mPDFset("default"), mTune(21), mWithMPI(false), mOutput(nullptr){}
+    PythiaHandler() : mEngine(), mPDFset("default"), mTune(21), mWithMPI(false), mDecay(false), mOutput(nullptr){}
     ~PythiaHandler(){}
 
     void configure(const char *inputfile, unsigned long seed){
@@ -66,14 +66,16 @@ public:
 
         // Switch On Pi0 Decay
         mEngine.readString("111:mayDecay  = on");
-        mEngine.readString("310:mayDecay  = off");
-        mEngine.readString("3122:mayDecay = off");
-        mEngine.readString("3112:mayDecay = off");
-        mEngine.readString("3212:mayDecay = off");
-        mEngine.readString("3222:mayDecay = off");
-        mEngine.readString("3312:mayDecay = off");
-        mEngine.readString("3322:mayDecay = off");
-        mEngine.readString("3334:mayDecay = off");
+        if(!mDecay) {
+            mEngine.readString("310:mayDecay  = off");
+            mEngine.readString("3122:mayDecay = off");
+            mEngine.readString("3112:mayDecay = off");
+            mEngine.readString("3212:mayDecay = off");
+            mEngine.readString("3222:mayDecay = off");
+            mEngine.readString("3312:mayDecay = off");
+            mEngine.readString("3322:mayDecay = off");
+            mEngine.readString("3334:mayDecay = off");
+        }
 
         // POWHEG Merging Parameters
         mEngine.readString("POWHEG:veto = 1");
@@ -125,6 +127,8 @@ public:
 
     void setTune(int tune) { mTune = tune; }
 
+    void setDecay() { mDecay = true; }
+
     void setMPI() {mWithMPI = true;}
   
     Pythia8::Pythia &getEngine() { return mEngine; }
@@ -175,6 +179,7 @@ private:
     std::string mPDFset;
     int mTune;
     bool mWithMPI;
+    bool mDecay;
     std::shared_ptr<Pythia8::PowhegHooks> mPowhegHooks;
     TClonesArray *mOutput;
 };  
@@ -256,6 +261,13 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
         if(val > 0) {
             std::cout << "Setting MPI" << std::endl;
             pythia.setMPI();
+        } 
+    }
+    if(gSystem->Getenv("CONFIG_DECAY")) {
+        int val = atoi(gSystem->Getenv("CONFIG_DECAY"));
+        if(val > 0) {
+            std::cout << "Setting Decays" << std::endl;
+            pythia.setDecay();
         } 
     }
     bool applyPtCut = false;

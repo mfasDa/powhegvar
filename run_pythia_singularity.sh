@@ -73,6 +73,9 @@ if [ "$VARIATION" == "PTCUT" ]; then
 	export CONFIG_PTCUT=$VARVALUE
 fi
 
+if [ "$VARIATION" == "DECAY" ]; then
+	export CONFIG_DECAY=$VARVALUE
+fi
 
 CMD=$(printf "root -l -b -q \'%s(\"%s\")\'>> pythia.log" $MACRO $INPUTFILE)
 echo "Processing:          $CMD"
