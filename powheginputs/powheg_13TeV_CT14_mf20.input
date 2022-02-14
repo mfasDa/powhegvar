@@ -26,8 +26,8 @@ lhans2  13100      ! pdf set for hadron 2 (LHA numbering)
 ! To be set only if using different pdf sets for the two incoming hadrons
 ! QCDLambda5  0.25    ! for not equal pdf sets 
 
-renscfact  1.5      ! (default 1d0) ren scale factor: muren  = muref * renscfact 
-facscfact  1d0      ! (default 1d0) fac scale factor: mufact = muref * facscfact 
+renscfact  1d0      ! (default 1d0) ren scale factor: muren  = muref * renscfact 
+facscfact  2d0      ! (default 1d0) fac scale factor: mufact = muref * facscfact 
 
 ! Parameters to allow or not the use of stored data
 use-old-grid    1    ! If 1 use old grid if file pwggrids.dat is present (<> 1 regenerate)
