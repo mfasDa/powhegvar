@@ -77,6 +77,10 @@ if [ "$VARIATION" == "DECAY" ]; then
 	export CONFIG_DECAY=$VARVALUE
 fi
 
+if [ "$VARIATION" == "RECOMBINATIONSCHEME" ]; then
+	export CONFIG_RECOMBINATIONSCHEME=$VARVALUE
+fi
+
 CMD=$(printf "root -l -b -q \'%s(\"%s\")\'>> pythia.log" $MACRO $INPUTFILE)
 echo "Processing:          $CMD"
 eval $CMD

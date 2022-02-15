@@ -278,6 +278,23 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
             applyPtCut = true;
         } 
     }
+    fastjet::RecombinationScheme scheme = fastjet::E_scheme;
+    if(gSystem->Getenv("CONFIG_RECOMBINATIONSCHEME")) {
+        std::string value = gSystem->Getenv("CONFIG_RECOMBINATIONSCHEME");
+        std::cout << "Setting recombination scheme to " << value;
+        if(value == "ptscheme") {
+            scheme = fastjet::pt_scheme;
+        } else if(value == "pt2scheme") {
+            scheme = fastjet::pt2_scheme;
+        } else if(value == "Etscheme") {
+            scheme = fastjet::Et_scheme;
+        } else if(value == "Et2scheme") {
+            scheme = fastjet::Et2_scheme;
+        } else {
+            std::cerr << "Unknown recombination scheme, exiting" << std::endl;
+            return;
+        }
+    }
     pythia.configure(inputfile, sseed);
     pythia.setOutput(particles);
     auto &engine = pythia.getEngine();
@@ -289,10 +306,10 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
     fastjet::AreaDefinition area_def(fastjet::active_area, area_spec);
 
     for (Int_t iR = 0; iR < nR; iR++)
-        jet_def.push_back(fastjet::JetDefinition(fastjet::antikt_algorithm, Rvals[iR]));
+        jet_def.push_back(fastjet::JetDefinition(fastjet::antikt_algorithm, Rvals[iR], scheme));
 
     for (Int_t iR = 0; iR < nR; iR++)
-        jet_defBkg.push_back(fastjet::JetDefinition(fastjet::kt_algorithm, Rvals[iR]));
+        jet_defBkg.push_back(fastjet::JetDefinition(fastjet::kt_algorithm, Rvals[iR], scheme));
 
 
     TString PDFused = engine.settings.word("PDF:pSet");
