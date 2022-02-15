@@ -6,6 +6,7 @@ import os
 import sys
 from helpers.setup_logging import setup_logging
 from helpers.cluster import get_cluster, get_default_partition, get_fast_partition
+from helpers.datahandler import find_pwgevents
 from helpers.slurm import submit
 
 repo = os.path.abspath(os.path.dirname(sys.argv[0]))
@@ -45,14 +46,6 @@ def split(filelistdir: str, pwhgfiles: list, chunksize: int) -> list:
         flist.build()
 	
     return filelists
-
-def find_pwgevents(inputdir: str, eventfile: str = "pwgevents.lhe"):
-	result = []
-	for root, dirs, files in os.walk(inputdir):
-		for fl in files:
-			if eventfile in fl:
-				result.append(os.path.join(os.path.abspath(root), fl))
-	return sorted(result)
 
 def build_logfile(logfile: str):
     logdir = os.path.dirname(logfile)

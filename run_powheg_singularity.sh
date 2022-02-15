@@ -6,6 +6,8 @@ OUTPUTBASE=$3
 POWHEG_VERSION=$4
 POWHEG_INPUT=$5
 SLOT=$6
+REWEIGHTMODE=$7
+WEIGHTID=$8
 
 MYHOME=
 if [ "$CLUSTER" == "CADES" ]; then
@@ -33,6 +35,15 @@ cp $POWHEG_INPUT $PWD/powheg.input
 
 # Set the randomseed
 echo "iseed $RANDOM" >> powheg.input
+
+if [ $REWEIGHTMODE -gt 0 ]; then
+    if [ ! -f $PWD/pwgevents.lhe ]; then
+        echo "Cannot run reweight mode because input file with POWHEG events (pwgevents.lhe) missing"
+        exit 1
+    fi
+    echo "compute_rwgt 1" >> powheg.input
+    echo "" >> powheg.input
+fi
 
 # Start timing
 STARTSTRING=$(date "+%d.%m.%Y %H:%M:%S")
