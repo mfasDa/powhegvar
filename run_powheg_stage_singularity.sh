@@ -16,10 +16,10 @@ if [ "$CLUSTER" == "CADES" ]; then
     module use $SIMSOFT/Modules/
     module load POWHEG/$POWHEG_VERSION
 else 
-    MYHOME=/nfs/home/mfasel_alice
+    MYHOME=/software/mfasel
     source $MYHOME/alice_setenv
     ALIENV=`which alienv`
-    eval `$ALIENV --no-refresh printenv powheg/latest`
+    eval `$ALIENV --no-refresh printenv POWHEG/latest`
 fi
 module list
 
@@ -39,7 +39,10 @@ if [ $XGRID_ITER -gt 0 ]; then
     logfile=$(printf "%s_xgriditer%d" "$logfile" $XGRID_ITER)
 fi
 logfile=$(printf "%s_slot%d.log" "$logfile" $SLOT)
-pwhg_main_dijet $SLOT  >& pwhg.log
+pwhg_main_dijet << EOF
+$SLOT 
+EOF
+#>& $logfile
 
 # End timing
 duration=$SECONDS

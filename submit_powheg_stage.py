@@ -19,7 +19,7 @@ class slurmconfig:
         self.__cluster = cluster
         self.__queue = queue
         self.__memory = memory
-        self.__timelimit == timelimit
+        self.__timelimit = timelimit
 
     def cluster(self) ->str:
         return self.__cluster
@@ -57,20 +57,19 @@ class MultiStageJob:
 
     def submit(self, powheg_version):
         jobname = "pwg_st{}".format(self.__stage)
-        logfilenbase =  "powheg_stage{}".format(self.__stage)
+        logfilebase =  "powheg_stage{}".format(self.__stage)
         if self.__stage == 1:
             jobname += "_xg{}".format(self.__xgriditer)
-            logfilenbase += "xgriditer{}"
+            logfilebase += "_xgriditer{}".format(self.__xgriditer)
         logfilebase += "_%a.log"
-        logdir = os.path.join(self.workdir, "logs")
+        logdir = os.path.join(self.__workdir, "logs")
         if not os.path.exists(logdir):
             os.makedirs(logdir, 0o755)
-        logfile = os.path.join(logdir, logfilenbase)
+        logfile = os.path.join(logdir, logfilebase)
         self.__jobid = submit(self.__build_command(powheg_version), self.__config.cluster(), jobname, logfile, self.__config.queue(), self.__slots, self.__config.timelimit(), self.__config.memory())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("submit_powheg_stage.py", description="Submitter for multi-stage POWHEG")
-    args = parser.parse_args()
     parser.add_argument("workdir", metavar="WORKDIR", type=str, help="Working directory")
     parser.add_argument("-i", "--input", metavar="POWHEGINPUT", type=str, default=os.path.join(repo, "powheginputs", "powheg_13TeV_CT14_default.input"), help="POWHEG input")
     parser.add_argument("-n", "--njobs", metavar="NJOBS", type=int, default=200, help="Number of slots")
@@ -101,7 +100,7 @@ if __name__ == "__main__":
 
     timelimit = "{}:00:00".format(args.hours)
     memory = "{}G".format(args.mem)
-    config = slurmconfig(partition, timelimit, memory)
+    config = slurmconfig(cluster, partition, timelimit, memory)
 
     workdir = os.path.join(args.workdir, "POWHEG_{}".format(args.version))
     job = MultiStageJob(workdir, args.stage, args.xgrid, args.njobs, config)

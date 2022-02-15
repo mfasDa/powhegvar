@@ -8,14 +8,23 @@ def load_pwginput(inputfile: str) -> dict:
     with open(inputfile, "r") as reader:
         for line in reader:
             line = line.rstrip("\n")
+            if not len(line):
+                continue
             line = line.lstrip()
-            if line.startswith("!"):
+            if line.startswith("!") or line.startswith("#"):
                 #line commented out
                 continue
-            commenttoken = line.find("!")
+            commenttoken = -1
+            if "!" in line or "#" in line:
+                if "!" in line:
+                    commenttoken = line.find("!")
+                elif "#" in line:
+                    commenttoken = line.find("#")
             command = line
             if commenttoken >= 0:
                 command = line[:commenttoken]
+            if not len(command):
+                continue
             tokens = command.split(" ")
             key = ""
             value = "" 
@@ -23,9 +32,9 @@ def load_pwginput(inputfile: str) -> dict:
                 if not len(tok):
                     continue
                 if not len(key):
-                    key = tok
+                    key = tok.lstrip().rstrip()
                 elif not len(value):
-                    value = tok
+                    value = tok.lstrip().rstrip()
             lines[key] = value
         reader.close()
     return lines
@@ -42,7 +51,7 @@ def check_compatible(targetfile: str, inputfile: str, ignore_keys: str) -> bool:
                 found = True
                 break
         return found
-    for key,value in config_input.items:
+    for key,value in config_input.items():
         if has_ignorekey(key, ignore_keys):
             continue
         if not key in config_target.keys():
@@ -51,7 +60,7 @@ def check_compatible(targetfile: str, inputfile: str, ignore_keys: str) -> bool:
         elif not value == config_target[key]:
             match_target = False
             break
-    for key,value in config_target:
+    for key,value in config_target.items():
         if has_ignorekey(key, ignore_keys):
             continue
         if not key in config_input.keys():
@@ -82,12 +91,12 @@ def build_powheg_stage(inputfile: str, workdir: str, stage: int, xgrid_iter: int
             for line in reader:
                 if "numevts" in line:
                     if stage == 4:
-                        writer.writable("numevts {}\n".format(nevents))
+                        writer.write("numevts {}\n".format(nevents))
                     else:
                         writer.write("{}\n".format(line.rstrip("\n")))
                     has_nevents = True
-                if "manyseeds" in line:
-                    writer.writable("manyseeds 1\n")
+                elif "manyseeds" in line:
+                    writer.write("manyseeds 1\n")
                     has_manyseeds = True
                 elif "maxseeds" in line:
                     writer.write("maxseeds {}\n".format(nslot))
@@ -107,7 +116,7 @@ def build_powheg_stage(inputfile: str, workdir: str, stage: int, xgrid_iter: int
                     writer.write("{}\n".format(line.rstrip("\n")))
             reader.close()
         if not has_manyseeds:
-            writer.writable("manyseeds 1\n")
+            writer.write("manyseeds 1\n")
         if not has_maxseeds:
             writer.write("maxseeds {}\n".format(nslot))
         if not has_stage:
@@ -119,7 +128,7 @@ def build_powheg_stage(inputfile: str, workdir: str, stage: int, xgrid_iter: int
                 writer.write("storemintupb 1\n")
         if stage == 4:
             if not has_nevents:
-                writer.writable("numevts {}\n".format(nevents))
+                writer.write("numevts {}\n".format(nevents))
         writer.close()
 
 def build_powhegseeds(workdir: str, nseeds: int = 1000000):

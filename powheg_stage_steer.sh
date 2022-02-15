@@ -18,7 +18,7 @@ if [ "$CLUSTER" == "CADES" ]; then
     module load PE-gnu
     module load singularity
 fi
-EXEC=$SOURCEDIR/run_powheg_singularity.sh
+EXEC=$SOURCEDIR/run_powheg_stage_singularity.sh
 
 execmd=$(printf "%s %s %s %s %s %d %d %d" $EXEC $CLUSTER $SOURCEDIR $OUTPUTBASE $POWHEG_VERSION $SLOT $STAGE $XGRID_ITER)
 containercmd=""
