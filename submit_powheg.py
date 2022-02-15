@@ -9,6 +9,7 @@ from helpers.cluster import get_cluster, get_default_partition
 from helpers.datahandler import find_pwgevents
 from helpers.setup_logging import setup_logging
 from helpers.slurm import submit_range
+from helpers.modules import find_powheg_releases
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -23,10 +24,6 @@ def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: st
     jobname = "pjj13T_{}".format(powheg_version)
     return submit_range(runcmd, cluster, jobname, logfile, "high_mem_cd", {"first": minslot, "last": minslot+njobs-1}, "{}:00:00".format(hours), "{}G".format(mem))
 
-def find_powheg_releases() -> list:
-    simpath = "/nfs/data/alice-dev/mfasel_alice/simsoft/"
-    files = [x for x in os.listdir(os.path.join(simpath, "Modules", "POWHEG"))]
-    return files
 
 def prepare_outputlocation(outputlocation: str):
     if not os.path.exists(outputlocation):
