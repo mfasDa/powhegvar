@@ -16,6 +16,16 @@ for chunk in ${chunks[@]}; do
     for fl in ${topfiles[@]}; do
         $EXE $fl
     done
+    ROOTHISTOS=($(ls -1 | grep root))
+    mergecmd="hadd -f powheghists.root"
+    for rh in ${ROOTHISTOS[@]}; do
+        mergecmd=$(printf "%s %s" "$mergecmd" "$rh")
+    done
+    eval $mergecmd
+    for rh in ${ROOTHISTOS[@]}; do
+        rm $rh
+    done
+
     cd $WORKDIR
 done
 cd $BASEDIR

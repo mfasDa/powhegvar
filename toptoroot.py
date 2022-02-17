@@ -26,23 +26,23 @@ class Plot:
         dataFlag = False
         for line in input:
             if not dataFlag:
-                if 'TITLE TOP' in line:
+                if 'title top' in line:
                     self.title = self.GetTitle(line)
-                elif 'TITLE BOTTOM' in line:
+                elif 'title bottom' in line:
                     self.xaxistitle = self.GetTitle(line)
-                elif 'TITLE LEFT' in line:
+                elif 'title left' in line:
                     self.yaxistitle = self.GetTitle(line)
-                elif 'SET LIMITS X' in line:
+                elif 'set limits X' in line:
                     self.xaxislowbound  = float(line.split()[-2])
                     self.xaxishighbound = float(line.split()[-1])
-                elif 'INTGRL' in line:
+                elif 'intgl' in line:
                     self.integral = float(line.split('INTGRL =')[1].split()[0])
                 elif 'SET ORDER X Y' in line:   # Start data points
                     dataFlag = True
                     continue
 
             if dataFlag:
-                if 'PLOT' in line:    # End data points
+                if 'plot' in line:    # End data points
                     dataFlag = False
                 else:
                     values = [float(word) for word in line.split()]
@@ -114,7 +114,7 @@ if __name__ == '__main__':
         inFile = open(inFilename, 'r')
         top_plots, plot_lines = [], []
         for line in inFile:
-            if 'NEW PLOT' in line:
+            if 'newplot' in line:
                 top_plots.append(Plot(plot_lines))
                 plot_lines[:] = []
             else:
