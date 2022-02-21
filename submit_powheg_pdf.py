@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 
-from curses import meta
 import os
 import argparse
 import logging
