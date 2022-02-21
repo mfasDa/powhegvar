@@ -91,3 +91,5 @@ doublefsr 1          ! Default 0; if 1 use new mechanism to generate regions
 par_diexp 4         ! default is 2. With 4 there is a stronger separation
 par_dijexp 4        ! of regions, it may help to reduce spikes when generating
 par_2gsupp 4        ! weighted events.
+
+lhrwgt_id 'main'
