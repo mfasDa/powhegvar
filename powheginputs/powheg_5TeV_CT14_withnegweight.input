@@ -95,3 +95,4 @@ par_dijexp 4        ! of regions, it may help to reduce spikes when generating
 par_2gsupp 4        ! weighted events.
 
 lhrwgt_id 'main'
+lhrwgt_descr 'main'
