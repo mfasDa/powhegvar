@@ -32,6 +32,8 @@ def process_input(inputfile: str, outputfile: str, pdfset: int, weightID: int):
     with open(inputfile, "r") as reader:
         with open(outputfile,  "w") as writer:
             weightidset = False
+            weightdescset = False
+            weightgroupset = False
             for line in reader:
                 if line.startswith("!") or line.startswith("#"):
                     writer.write("{}\n".format(line.rstrip("\n")))
@@ -42,14 +44,23 @@ def process_input(inputfile: str, outputfile: str, pdfset: int, weightID: int):
                     newline = replace_value(line.rstrip("\n"), "\'{}\'".format(weightID))
                     writer.write("{}\n".format(newline))
                     weightidset = True
+                elif "lhrwgt_descr" in line:
+                    newline = replace_value(line.rstrip("\n"), "\'pdf {}\'".format(pdfset))
+                    writer.write("{}\n".format(newline))
+                    weightdescset = True
+                elif "lhrwgt_group_name" in line:
+                    newline = replace_value(line.rstrip("\n"), "\'pdf uncertainties\'")
+                    writer.write("{}\n".format(newline))
+                    weightgroupset = True
                 else:
                     writer.write("{}\n".format(line.rstrip("\n")))
             writer.write("compute_rwgt 1\n")
-            writer.write("rwl_add 1\n")
             if not weightidset:
                 writer.write("lhrwgt_id \'{}\'\n".format(weightID))
-            writer.write("lhrwgt_descr \'pdf uncertainties\'\n")
-            writer.write("lhrwgt_group_name \'uncertainties\'\n")
+            if not weightdescset:
+                writer.write("lhrwgt_descr \'pdf {}\'\n".format(pdfset))
+            if not weightgroupset:
+                writer.write("lhrwgt_group_name \'pdf uncertainties\'\n")
             writer.write("lhrwgt_group_combine \'foo\'\n")
             writer.close()
         reader.close()

@@ -45,7 +45,7 @@ echo "Job start: $STARTSTRING"
 SECONDS=0
 
 CURRENTPDF=$MINPDF
-CURRENTWEIGHT=2
+CURRENTWEIGHT=1
 while [ $CURRENTPDF -le $MAXPDF ]; do    
     echo "Processing PDF set: $CURRENTPDF ($CURRENTWEIGHT)" 
     # set PDF set
