@@ -10,10 +10,11 @@ VARVALUE=$7
 
 PYTHIAFROMROOT=0
 INITALICE=0
-MACRO=$SOURCEDIR/RunPythia8.C
+MACRODIR=$SOURCEDIR/macros
+MACRO=$MACRODIR/PYTHIA/RunPythia8.C
 if [ "x$(echo $PYVERSION | grep ROOT)" != "x" ]; then
 	let "INITALICE=1"
-	MACRO=$SOURCEDIR/RunPythia8FromROOT.C
+	MACRO=$MACRODIR/RunPythia8FromROOT.C
 elif [ "x$(echo $PYVERSION | grep FromALICE)" != "x" ]; then
 	let "INITALICE=1"
 fi
@@ -35,10 +36,10 @@ else
 		module load ROOT/v6-24-06
 		module load PYTHIA/$PYVERSION
 		if [ "$PYVERSION" == "v8245" ]; then
-			MACRO=$SOURCEDIR/RunPythia8Old.C
+			MACRO=$MACRODIR/RunPythia8Old.C
 		fi
 		if [ "$PYVERSION" == "v8186" ]; then
-			MACRO=$SOURCEDIR/RunPythia8186.C
+			MACRO=$MACRODIR/RunPythia8186.C
 		fi
 	fi
 fi
