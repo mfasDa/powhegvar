@@ -11,16 +11,16 @@ from helpers.modules import find_powheg_releases
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, minpdf: int, maxpdf: int, njobs: int, mem: int = 4, hours: int = 10):
+def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, minpdf: int, maxpdf: int, njobs: int, mem: int = 4, hours: int = 10, dependency: int = 0):
     print("Submitting POWHEG release {}".format(powheg_version))
     logdir = os.path.join(workdir, "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
-    logfile = os.path.join(logdir, "joboutput%a.log")
+    logfile = os.path.join(logdir, "joboutput_{}_{}_%a.log".format(minpdf, maxpdf))
     executable = os.path.join(repo, "powheg_steer_pdf.sh")
     runcmd = "{} {} {} {} {} {} {} {}".format(executable, cluster, repo, workdir, powheg_version, powheg_input, minpdf, maxpdf)
     jobname = "pdfvar".format(powheg_version)
-    return submit(runcmd, cluster, jobname, logfile, "high_mem_cd", njobs, "{}:00:00".format(hours), "{}G".format(mem))
+    return submit(runcmd, cluster, jobname, logfile, "high_mem_cd", njobs, "{}:00:00".format(hours), "{}G".format(mem), dependency=dependency)
 
 def find_number_of_input_files(workdir: str):
     pwgdirs = [x for x in os.listdir(workdir) if os.path.isfile(os.path.join(workdir, x, "pwgevents.lhe"))]
@@ -37,6 +37,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="Partition")
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
+    parser.add_argument("--dependency", metavar="DEPENDENCY", type=int, default=-1, help="Dependency")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
     args = parser.parse_args()
     setup_logging(args.debug)
@@ -57,6 +58,6 @@ if __name__ == "__main__":
         print("requested POWHEG not found: {}".format(args.version))
         sys.exit(1)
     print("Simulating with POWHEG: {}".format(args.version))
-    pwhgjob = submit_job(cluster, args.workdir, args.version, args.input, args.minpdf, args.maxpdf, njobs, args.mem, args.hours)
+    pwhgjob = submit_job(cluster, args.workdir, args.version, args.input, args.minpdf, args.maxpdf, njobs, args.mem, args.hours, args.dependency)
     logging.info("Job ID: %d", pwhgjob)
 	
