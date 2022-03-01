@@ -7,6 +7,7 @@ POWHEG_VERSION=$4
 POWHEG_INPUT=$5
 MINPDF=$6
 MAXPDF=$7
+MINID=$8
 
 SLOT=$SLURM_ARRAY_TASK_ID
 
@@ -21,7 +22,7 @@ if [ "$CLUSTER" == "CADES" ]; then
 fi
 EXEC=$SOURCEDIR/run_powheg_singularity_pdf.sh
 
-execmd=$(printf "%s %s %s %s %s %s %d %d %d" $EXEC $CLUSTER $SOURCEDIR $OUTPUTBASE $POWHEG_VERSION $POWHEG_INPUT $SLOT $MINPDF $MAXPDF)
+execmd=$(printf "%s %s %s %s %s %s %d %d %d %d" $EXEC $CLUSTER $SOURCEDIR $OUTPUTBASE $POWHEG_VERSION $POWHEG_INPUT $SLOT $MINPDF $MAXPDF $MINID)
 containercmd=""
 if [ "x$CONTAINER" != "x" ]; then
     containercmd=$(printf "singularity exec %s %s %s" "$BINDS" $CONTAINER "$execmd")

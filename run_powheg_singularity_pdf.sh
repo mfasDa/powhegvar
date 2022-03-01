@@ -8,6 +8,7 @@ POWHEG_INPUT=$5
 SLOT=$6
 MINPDF=$7
 MAXPDF=$8
+MINID=$9
 
 MYHOME=
 if [ "$CLUSTER" == "CADES" ]; then
@@ -45,7 +46,7 @@ echo "Job start: $STARTSTRING"
 SECONDS=0
 
 CURRENTPDF=$MINPDF
-CURRENTWEIGHT=1
+CURRENTWEIGHT=$MINID
 while [ $CURRENTPDF -le $MAXPDF ]; do    
     echo "Processing PDF set: $CURRENTPDF ($CURRENTWEIGHT)" 
     # set PDF set

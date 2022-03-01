@@ -11,14 +11,14 @@ from helpers.modules import find_powheg_releases
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, minpdf: int, maxpdf: int, njobs: int, mem: int = 4, hours: int = 10, dependency: int = 0):
+def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, minpdf: int, maxpdf: int, minid: int, njobs: int, mem: int = 4, hours: int = 10, dependency: int = 0):
     print("Submitting POWHEG release {}".format(powheg_version))
     logdir = os.path.join(workdir, "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
     logfile = os.path.join(logdir, "joboutput_{}_{}_%a.log".format(minpdf, maxpdf))
     executable = os.path.join(repo, "powheg_steer_pdf.sh")
-    runcmd = "{} {} {} {} {} {} {} {}".format(executable, cluster, repo, workdir, powheg_version, powheg_input, minpdf, maxpdf)
+    runcmd = "{} {} {} {} {} {} {} {} {}".format(executable, cluster, repo, workdir, powheg_version, powheg_input, minpdf, maxpdf, minid)
     jobname = "pdfvar".format(powheg_version)
     return submit(runcmd, cluster, jobname, logfile, "high_mem_cd", njobs, "{}:00:00".format(hours), "{}G".format(mem), dependency=dependency)
 
@@ -32,6 +32,7 @@ if __name__ == "__main__":
     parser.add_argument("workdir", metavar="WORKDIR", type=str, help="Working directory")
     parser.add_argument("minpdf", metavar="MINPDF", type=int, help="Min. PDF set number")
     parser.add_argument("maxpdf", metavar="MAXPDF", type=int, help="Max. PDF")
+    parser.add_argument("minid", metavar="MINID", type=int, default=1, help="Min. weight ID")
     parser.add_argument("-i", "--input", metavar="POWHEGINPUT", type=str, default=os.path.join(repo, "powheginputs", "powheg_13TeV_CT14_default.input"), help="POWHEG input")
     parser.add_argument("-v", "--version", metavar="VERSION", type=str, default="r3898", help="POWEHG version")
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="Partition")
