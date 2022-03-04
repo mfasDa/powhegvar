@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <TFile.h>
+#include <TGraphAsymmErrors.h>
 #include <TH1.h>
 #include <TKey.h>
 
