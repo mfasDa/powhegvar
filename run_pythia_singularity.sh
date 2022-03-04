@@ -5,16 +5,26 @@ SOURCEDIR=$2
 INPUTFILE=$3
 OUTPUTBASE=$4
 PYVERSION=$5
-VARIATION=$6
-VARVALUE=$7
+PYTHIAMACRO=$6
+VARIATION=$7
+VARVALUE=$8
 
 PYTHIAFROMROOT=0
 INITALICE=0
-MACRODIR=$SOURCEDIR/macros
-MACRO=$MACRODIR/PYTHIA/RunPythia8.C
+MACRODIR=$SOURCEDIR/macros/PYTHIA
+MACRO=
+if [ "$PYTHIAMACRO" == "default" ]; then
+	MACRO=$MACRODIR/RunPythia8.C
+	echo "Using default macro: $MACRO"
+else 
+	MACRO=$MACRODIR/$PYTHIAMACRO
+fi
 if [ "x$(echo $PYVERSION | grep ROOT)" != "x" ]; then
 	let "INITALICE=1"
-	MACRO=$MACRODIR/RunPythia8FromROOT.C
+	if [ "$PYTHIAMACRO" == "default" ]; then
+		MACRO=$MACRODIR/RunPythia8FromROOT.C
+		echo "Using default macro: $MACRO"
+	fi
 elif [ "x$(echo $PYVERSION | grep FromALICE)" != "x" ]; then
 	let "INITALICE=1"
 fi
@@ -36,10 +46,16 @@ else
 		module load ROOT/v6-24-06
 		module load PYTHIA/$PYVERSION
 		if [ "$PYVERSION" == "v8245" ]; then
-			MACRO=$MACRODIR/RunPythia8Old.C
+			if [ "$PYTHIAMACRO" == "default" ]; then
+				MACRO=$MACRODIR/RunPythia8Old.C
+				echo "Using default macro: $MACRO"
+			fi
 		fi
 		if [ "$PYVERSION" == "v8186" ]; then
-			MACRO=$MACRODIR/RunPythia8186.C
+			if [ "$PYTHIAMACRO" == "default" ]; then
+				MACRO=$MACRODIR/RunPythia8186.C
+				echo "Using default macro: $MACRO"
+			fi
 		fi
 	fi
 fi

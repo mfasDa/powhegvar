@@ -65,7 +65,7 @@ def submit_merge(cluster: str, outputbase: str, rootfile: str, partition: str, d
     logfile = build_logfile(os.path.join(outputbase, "logs", "merge.log"))
     return submit(command, cluster, "merge_py", logfile, partition, 0, "01:00:00", "4G", dependency) 
 
-def submit_pythia(cluster: str, outputdir: str, inputdir: str, chunksize: int, pythiaver: str, variation: str, partition: str, timelimit: str = "10:00:00") -> int:
+def submit_pythia(cluster: str, outputdir: str, inputdir: str, chunksize: int, pythiaver: str, macro: str, variation: str, partition: str, timelimit: str = "10:00:00") -> int:
     vartype = "NONE"
     varvalue = "NONE"
     if ":" in variation:
@@ -83,7 +83,7 @@ def submit_pythia(cluster: str, outputdir: str, inputdir: str, chunksize: int, p
         command = "{} {} {} {} {} {}".format(script, cluster, repo, outputdir, vartype, varvalue)
     else:
         script = os.path.join(repo, "pythia_steer.sh")
-        command = "{} {} {} {} {} {} {}".format(script, cluster, repo, outputdir, pythiaver, vartype, varvalue)
+        command = "{} {} {} {} {} {} {} {}".format(script, cluster, repo, outputdir, pythiaver, macro, vartype, varvalue)
     logfile = build_logfile(os.path.join(outputdir, "logs", "pythia%a.log"))
     return submit(command, cluster, "py_{}".format(pythiaver), logfile, partition, len(filelists), timelimit)
 
@@ -103,6 +103,7 @@ if __name__ == "__main__":
     parser.add_argument("outputbase", metavar="OUTPUTBASE", type=str, help="Location for PYTHIA output")
     parser.add_argument("pythiaversion", metavar="PYTHIAVERSION", type=str, help="PYTHIA version")
     parser.add_argument("-n", "--nchunk", metavar="NCHUNK", type=int, default=5, help="Number of chunks")
+    parser.add_argument("-m", "--macro", metavar="MACRO", type=str, default="default", help="PYTHIA macro (from repository)")
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="SLURM partition")
     parser.add_argument("-t", "--timelimit", metavar="TIMELIMIT", type=str, default="10:00:00", help="Max allowed time (in h:m::s)")
     parser.add_argument("-v", "--variation", metavar="VARIATION", type=str, default="NONE", help="Systematic variation (TYPE:VALUE)")
@@ -122,7 +123,7 @@ if __name__ == "__main__":
     outputdir = os.path.join(os.path.abspath(args.outputbase), args.pythiaversion)
     if not os.path.exists(outputdir):
         os.makedirs(outputdir, 0o755)
-    pythiajob = submit_pythia(cluster, outputdir, args.inputdir, args.nchunk, args.pythiaversion, args.variation, partition, args.timelimit)
+    pythiajob = submit_pythia(cluster, outputdir, args.inputdir, args.nchunk, args.pythiaversion, args.macro, args.variation, partition, args.timelimit)
     logging.info("Submitted PYTHIA job under ID %d", pythiajob)
     mergejob = submit_merge(cluster, outputdir, "Pythia8JetSpectra.root", fast_partition, pythiajob)
     logging.info("Submitted merging job under ID %d", mergejob)
