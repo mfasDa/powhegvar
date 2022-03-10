@@ -59,6 +59,6 @@ if __name__ == "__main__":
         print("requested POWHEG not found: {}".format(args.version))
         sys.exit(1)
     print("Simulating with POWHEG: {}".format(args.version))
-    pwhgjob = submit_job(cluster, args.workdir, args.version, args.input, args.minpdf, args.maxpdf, njobs, args.mem, args.hours, args.dependency)
+    pwhgjob = submit_job(cluster, args.workdir, args.version, args.input, args.minpdf, args.maxpdf, args.minid, njobs, args.mem, args.hours, args.dependency)
     logging.info("Job ID: %d", pwhgjob)
 	

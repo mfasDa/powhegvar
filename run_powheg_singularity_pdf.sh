@@ -28,12 +28,21 @@ module list
 # Setup LHAPDF 
 source $MYHOME/lhapdf_data_setenv 
 
+DEBUG=0
+RUN_DEBUG=1
+NO_DEBUG=0
+
 JOBDIR=$(printf "%s/%04d" $OUTPUTBASE $SLOT)
-if [ ! -d $JOBDIR ]; then mkdir -p $JOBDIR; fi
+if [ ! -d $JOBDIR ]; then 
+    echo "Cannot run reweight mode because input directory does not exist"
+    exit 1
+fi
 cd $JOBDIR
 
-if [ -f powheg.input ]; then rm powheg.input; fi
-cp $POWHEG_INPUT $PWD/powheg_base.input
+if [ $DEBUG -eq $NO_DEBUG ]; then
+    if [ -f powheg.input ]; then rm powheg.input; fi
+    cp $POWHEG_INPUT $PWD/powheg_base.input
+fi
 
 if [ ! -f $PWD/pwgevents.lhe ]; then
     echo "Cannot run reweight mode because input file with POWHEG events (pwgevents.lhe) missing"
@@ -49,6 +58,12 @@ CURRENTPDF=$MINPDF
 CURRENTWEIGHT=$MINID
 while [ $CURRENTPDF -le $MAXPDF ]; do    
     echo "Processing PDF set: $CURRENTPDF ($CURRENTWEIGHT)" 
+    if [ $DEBUG -eq $RUN_DEBUG ]; then
+        let "CURRENTPDF++"
+        let "CURRENTWEIGHT++"
+        continue
+    fi
+
     # set PDF set
     $SOURCEDIR/prepare_pdfreweight.py powheg_base.input powheg.input $CURRENTPDF $CURRENTWEIGHT
 
