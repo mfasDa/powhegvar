@@ -257,7 +257,75 @@ std::vector<double> getLinearBinning(double min, double max, double stepsize){
   return binning;
 }
 
-void RunPythiaSoftDrop(const char *inputfile = "pwgevents.lhe", const char *foutname = "Pythia8SoftDrop.root", Int_t ndeb = 1) {
+class Variation {
+public:
+    Variation() = default;
+    Variation(int pdfid, int weightID) : mPDFID(pdfid), mWeightID(weightID) { } 
+    ~Variation() = default;
+    bool operator==(const Variation &other) const { return mWeightID == other.mWeightID; }
+    bool operator<(const Variation &other) const { return mWeightID < other.mWeightID; }
+
+    void init(){
+        std::vector<double> zgbinning = {0., 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5},
+            nsdbinning = getLinearBinning(-1.5, 20.5, 1.);
+        for(auto R = 2; R < 7; R++) {
+            std::vector<double> rgbinning = {-0.05};
+            double ir = 0.;
+            while(ir <= double(R)/10 + 0.05) {
+                rgbinning.push_back(ir);
+                ir += 0.05;
+            }
+            auto zghist = new TH2D(Form("hZgR%02d", R), Form("Zg for R = %.1f", double(R)/10), zgbinning.size() - 1, zgbinning.data(), 500, 0., 500.);
+            zghist->SetDirectory(nullptr);
+            zghist->Sumw2();
+            hZg[R-2] = zghist;
+            auto rghist = new TH2D(Form("hRgR%02d", R), Form("Rg for R = %.1f", double(R)/10), rgbinning.size() - 1, rgbinning.data(), 500, 0., 500.);
+            rghist->SetDirectory(nullptr);
+            rghist->Sumw2();
+            hRg[R-2] = rghist;
+            auto nsdhist = new TH2D(Form("hNsdR%02d", R), Form("Nsd for R = %.1f", double(R)/10), nsdbinning.size() - 1, nsdbinning.data(), 500, 0., 500.);
+            nsdhist->SetDirectory(nullptr);
+            nsdhist->Sumw2();
+            hNsd[R-2] = nsdhist;
+        }
+    }
+
+    void fill(int R, double pt, double zg, double rg, double nsd, double weight) {
+        //std::cout << "Filling R=" << R << std::endl;
+        hZg[R-2]->Fill(zg, pt, weight);
+        hRg[R-2]->Fill(rg, pt, weight);
+        hNsd[R-2]->Fill(nsd, pt, weight);
+    }
+
+    void fillWeight(double weight) { mSumWeight += weight; }
+    int getPDF() const { return mPDFID; }
+    double getSumW() const { return mSumWeight; }
+
+    void write(TFile &writer) {
+        std::string dirname = Form("pdf%d", mPDFID);
+        writer.mkdir(dirname.data());
+        writer.cd(dirname.data());
+        for(int iR= 0; iR < NJETR; iR++) {
+            hZg[iR]->Write();
+            hRg[iR]->Write();
+            hNsd[iR]->Write();
+        }
+        TH1D *NumberofTrials = new TH1D("NumberofTrials", "Number of Trials", 1, 0, 1);
+        NumberofTrials->SetBinContent(1, mSumWeight);
+        NumberofTrials->Write();
+    } 
+
+private:
+    static const int NJETR = 5;
+    int mPDFID;
+    int mWeightID;
+    double mSumWeight = 0;
+    std::array<TH2 *, NJETR> hZg;
+    std::array<TH2 *, NJETR> hRg;
+    std::array<TH2 *, NJETR> hNsd;
+};
+
+void RunPythia8SoftDropPDF(const char *inputfile = "pwgevents.lhe", const char *foutname = "Pythia8SoftDrop.root", Int_t ndeb = 1) {
     const double MBtoPB = 1e-9;
     const double kMaxEta = 0.7;
 
@@ -301,33 +369,46 @@ void RunPythiaSoftDrop(const char *inputfile = "pwgevents.lhe", const char *fout
 
     TH1F *hNEvent = new TH1F("hNEvent", "number of events; N", 1, 0, 1);
     hNEvent->SetDirectory(nullptr);
-    std::vector<double> zgbinning = {0., 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5},
-                        nsdbinning = getLinearBinning(-1.5, 20.5, 1.);
-    std::map<int, TH2 *> hZg, hRg, hNsd;
-    for(auto R = 2; R < 7; R++) {
-        std::vector<double> rgbinning = {-0.05};
-        double ir = 0.;
-        while(ir <= double(R)/10 + 0.05) {
-            rgbinning.push_back(ir);
-            ir += 0.05;
+
+        // Discovering weight IDs and PDF sets from the weight container
+    int nweights = engine.info.nWeights();
+    auto groups = engine.info.weightgroups;
+    std::cout << "Found " << nweights << " weights" << std::endl;
+    std::cout << "Found " << groups->size() << " weight groups" << std::endl;
+    std::map<int, int> mapping_weight_pdf;
+    for(auto iw : ROOT::TSeqI(0, nweights)) {
+        auto label = engine.info.weightLabel(iw);
+        std::cout << "Weight " << iw << ": " << label << std::endl;
+    }
+    for(auto &grp : *groups) {
+        std::cout << "Found weigt group: " << grp.first << std::endl;
+        auto weights = grp.second.weights;
+        for(auto weight : weights) {
+            int weightID = std::stoi(weight.second.id);
+            TString pdfstring(weight.second.contents);
+            pdfstring.ReplaceAll("pdf", "");
+            int pdfsetID = pdfstring.Atoi();
+            std::cout << "Extracted pdfset " << pdfsetID << " for ID " << weightID << std::endl;
+            mapping_weight_pdf[weightID] = pdfsetID;
         }
-        auto zghist = new TH2D(Form("hZgR%02d", R), Form("Zg for R = %.1f", double(R)/10), zgbinning.size() - 1, zgbinning.data(), 500, 0., 500.);
-        zghist->SetDirectory(nullptr);
-        zghist->Sumw2();
-        hZg[R] = zghist;
-        auto rghist = new TH2D(Form("hRgR%02d", R), Form("Rg for R = %.1f", double(R)/10), rgbinning.size() - 1, rgbinning.data(), 500, 0., 500.);
-        rghist->SetDirectory(nullptr);
-        rghist->Sumw2();
-        hRg[R] = rghist;
-        auto nsdhist = new TH2D(Form("hNsdR%02d", R), Form("Nsd for R = %.1f", double(R)/10), nsdbinning.size() - 1, nsdbinning.data(), 500, 0., 500.);
-        nsdhist->SetDirectory(nullptr);
-        nsdhist->Sumw2();
-        hNsd[R] = nsdhist;
+    }
+
+    // Setting up variation handler (histogram container for certain pdf set)
+    // The weight ID is used to map the pdf set
+    // We will used the convention: weight ID 'main' (lhe) -> 0 -> pdfset: 13100 (CT14 cent)
+    std::map<int, Variation> variations;
+    Variation basevar(13100, 0);
+    basevar.init();
+    variations[0] = basevar;
+    for(auto &weight : mapping_weight_pdf) {
+        std::cout << "Setting new variation with ID " << weight.first << " and PDFset " << weight.second << std::endl;
+        Variation nextvar(weight.second, weight.first);
+        nextvar.init();
+        variations[weight.first] = nextvar;
     }
 
     clock_t begin_time = clock();
     int iev = 0 ;
-    Double_t SumW(0);
     while(true) {
 
         if (!(iev % 1000)) {
@@ -341,10 +422,24 @@ void RunPythiaSoftDrop(const char *inputfile = "pwgevents.lhe", const char *fout
             break;
         }   
         pythia.importParticles("All");
-
-        Double_t evt_wght = engine.info.weight(); //Event Weight for weighted events
-        evt_wght *= MBtoPB;                       // Weight is pb so *1e-9 to transform to mb
-        SumW += evt_wght;
+        // Impport weights based on the ID: main -> 0
+        const auto* weights = engine.info.weights_detailed;
+        std::map<int, double> eventWeights;
+        for(auto &wgt : *weights) {
+            std::string idstr(wgt.first);
+            double weightvalue = wgt.second * MBtoPB;
+            int weightID = -1;
+            if(idstr == "main") {
+                weightID = 0;
+            } else {
+                weightID = std::stoi(idstr);
+            }
+            eventWeights[weightID] = weightvalue;
+            auto variation = variations.find(weightID);
+            if(variation != variations.end()) {
+                variation->second.fillWeight(weightvalue);
+            }
+        }
 
         hNEvent->Fill(0.5);
 
@@ -357,9 +452,17 @@ void RunPythiaSoftDrop(const char *inputfile = "pwgevents.lhe", const char *fout
                 if(std::abs(jet.eta()) > 0.7 - jetradius) continue;     // restriction to EMCAL fiducial acceptance
                 auto softdropresults = makeSoftDrop(jet.constituents(), jetradius);
                 auto splittings = makeIterativeSoftDrop(jet.constituents(), jetradius);
-                hZg[R]->Fill(softdropresults.Zg, jet.pt(), evt_wght);
-                hRg[R]->Fill(softdropresults.Zg < 0.1 ? -0.01 : softdropresults.Rg, jet.pt(), evt_wght); 
-                hNsd[R]->Fill(softdropresults.Zg < 0.1 ? -1. : splittings.size(), jet.pt(), evt_wght); 
+                double zg = softdropresults.Zg,
+                       rg = softdropresults.Zg < 0.1 ? -0.01 : softdropresults.Rg,
+                       nsd = softdropresults.Zg < 0.1 ? -1. : splittings.size();
+                for(auto &var : variations) {
+                    double weight = 0.;
+                    auto weightfound = eventWeights.find(var.first);
+                    if(weightfound != eventWeights.end()) {
+                        weight = weightfound->second;
+                    }
+                    var.second.fill(R, jet.pt(), zg, rg, nsd, weight);
+                }
             }
         }
         iev++;
@@ -369,27 +472,15 @@ void RunPythiaSoftDrop(const char *inputfile = "pwgevents.lhe", const char *fout
     //sumw *= 1e-9;
     Double_t TotalXSec = engine.info.sigmaGen();
 
-    std::cout << "\nTotal Xsec is : " << TotalXSec << "  Total Weight is : " << sumw << "          " << SumW << std::endl;
-
-    TProfile *crosssection = new TProfile("CrossSection", "Total cross section", 1, 0, 1);
-    crosssection->SetDirectory(nullptr);
-    crosssection->Fill(0.5, TotalXSec);
-
-    TH1D *numberoftrials = new TH1D("NumberofTrials", "Number of Trials", 1, 0, 1);
-    numberoftrials->SetDirectory(nullptr);
-    numberoftrials->SetBinContent(1, sumw);
-
-    std::unique_ptr<TFile> writer(TFile::Open(foutname, "RECREATE"));
-    writer->cd();
+    std::cout << "\nTotal Xsec is : " << TotalXSec << std::endl;
+    std::unique_ptr<TFile> fout(TFile::Open(foutname, "RECREATE"));
     hNEvent->Write();
-    crosssection->Write();
-    numberoftrials->Write();
-    for(auto R = 2; R < 7; R++) {
-        std::string rstring = Form("R%02d", R);
-        writer->mkdir(rstring.data());
-        writer->cd(rstring.data());
-        hZg[R]->Write();
-        hRg[R]->Write();
-        hNsd[R]->Write();
+    TProfile *CrossSection = new TProfile("CrossSection", "Total cross section", 1, 0, 1);
+    CrossSection->Fill(0.5, TotalXSec);
+    CrossSection->Write();
+
+    for(auto var : variations) {
+        std::cout  << "PDF " << var.second.getPDF() << ", Total Weight is : " << var.second.getSumW() << std::endl;
+        var.second.write(*fout);
     }
 }
