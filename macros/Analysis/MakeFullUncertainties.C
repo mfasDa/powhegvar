@@ -70,7 +70,7 @@ TGraphAsymmErrors * makeCombinedUncertainty(TGraphAsymmErrors *dataScale, TH1 *d
                eyl_scale = dataScale->GetEYlow()[ipt],
                eyh_scale = dataScale->GetEYhigh()[ipt];
         int binPDF = dataPDF->GetXaxis()->FindBin(x);
-        double ey_pdf = dataPDF->GetBinContent(binPDF);
+        double ey_pdf = dataPDF->GetBinError(binPDF);
         double eyl_full = std::sqrt(eyl_scale*eyl_scale + ey_pdf*ey_pdf),
                eyh_full = std::sqrt(eyh_scale*eyh_scale + ey_pdf*ey_pdf);
         result->SetPoint(ipt, x, y);
