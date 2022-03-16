@@ -173,5 +173,6 @@ void ComparisonScalesRatio(){
     }
     plot->cd();
     plot->Update();
-    plot->SaveAs(Form("%s.png", plot->GetName()));
+    std::vector<std::string> formats = {"eps", "pdf", "png"};
+    for(auto &form : formats) plot->SaveAs(Form("%s.%s", plot->GetName(), form.data()));
 }
