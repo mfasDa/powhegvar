@@ -23,23 +23,15 @@ struct ratiokey {
     bool operator<(const ratiokey &other) const { if(numerator == other.numerator) return denominator < other.denominator; return numerator < other.numerator; }
 };
 
-TGraphAsymmErrors *makeRatioUncorrelated(TH1 *numerator, TH1 *denominator) {
+TGraphAsymmErrors *makeGraph(TH1 *hist) {
     TGraphAsymmErrors *result = new TGraphAsymmErrors;
-    int np = 0;
-    for(int ib : ROOT::TSeqI(0, numerator->GetXaxis()->GetNbins())) {
-        double x = numerator->GetXaxis()->GetBinCenter(ib+1),
-               ex = numerator->GetXaxis()->GetBinWidth(ib+1) / 2.,
-               num = numerator->GetBinContent(ib+1),
-               errnum = numerator->GetBinError(ib+1),
-               den = denominator->GetBinContent(ib+1),
-               errden = denominator->GetBinError(ib+1);
-        double val = num/den,
-               erelnum = errnum / num,
-               erelden = errden / den,
-               eval = val * std::sqrt(erelnum * erelnum + erelden * erelden);
-        result->SetPoint(np, x, val);
-        result->SetPointError(np, ex, ex, eval, eval);
-        np++;
+    for(auto ib : ROOT::TSeqI(0, hist->GetXaxis()->GetNbins())) {
+        auto x = hist->GetXaxis()->GetBinCenter(ib+1),
+             y = hist->GetBinContent(ib+1),
+             ex = hist->GetXaxis()->GetBinWidth(ib+1)/2.,
+             ey = hist->GetBinError(ib+1);
+        result->SetPoint(ib, x, y);
+        result->SetPointError(ib, ex, ex, ey, ey);
     }
     return result;
 }
@@ -79,17 +71,15 @@ std::map<ratiokey, TGraphAsymmErrors *> read_PDF(const char *filename) {
     std::map<ratiokey, TGraphAsymmErrors *> result;
     std::unique_ptr<TFile> reader(TFile::Open(filename, "READ"));
     int numerator = 2;
-    TH1 *spectrumnumerator = reader->Get<TH1>(Form("SpectrumWithCombinedErrors_R%02d", numerator));
     for(auto denominator : ROOT::TSeqI(3, 7)){
-        TH1 *spectrumdenominator = reader->Get<TH1>(Form("SpectrumWithCombinedErrors_R%02d", denominator));
-        result[{numerator, denominator}] = makeRatioUncorrelated(spectrumnumerator, spectrumdenominator);
+        result[{numerator, denominator}] = makeGraph(reader->Get<TH1>(Form("SpectrumRatioWithCombinedErrors_R%02dR%02d", numerator, denominator)));
     }
     return result;
 }
 
-void MakeFullUncertaintiesRatios(){
+void MakeFullUncertaintiesRatiosCorrelated(){
     auto ratioWithScaleErrors = read_Scales("POWHEGPYTHIA_jetspectrumratios_sys.root"),
-         ratioWithPDFErrors = read_PDF("POWHEGPYTHIA_jetspectrum_syspdf.root");
+         ratioWithPDFErrors = read_PDF("POWHEGPYTHIA_jetspectrumratio_syspdf.root");
     int numerator = 2;
     std::map<ratiokey, TGraphAsymmErrors *> combined;    
     for(auto denominator : ROOT::TSeqI(3, 7)) {
@@ -99,7 +89,7 @@ void MakeFullUncertaintiesRatios(){
         combined[nextratio] = combineduncertainty;
     }
 
-    std::unique_ptr<TFile> writer(TFile::Open("POWHEGPYTHIA_13TeV_fulljets_ratios_withfullsys.root", "RECREATE"));
+    std::unique_ptr<TFile> writer(TFile::Open("POWHEGPYTHIA_13TeV_fulljets_ratios_withcorrelatedfullsys.root", "RECREATE"));
     for(auto denominator : ROOT::TSeqI(3, 7)) {
         auto combineduncertainty = combined.find({numerator, denominator})->second,
              scaleuncertainty = ratioWithScaleErrors.find({numerator, denominator})->second,
