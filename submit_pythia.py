@@ -100,7 +100,7 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--macro", metavar="MACRO", type=str, default="default", help="PYTHIA macro (from repository)")
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="SLURM partition")
     parser.add_argument("-t", "--timelimit", metavar="TIMELIMIT", type=str, default="10:00:00", help="Max allowed time (in h:m::s)")
-    parser.add_argument("-v", "--variation", metavar="VARIATION", type=str, default="NONE", help="Systematic variation (TYPE1=VALUE;TYPE2=VALUE2;...)")
+    parser.add_argument("-v", "--variation", metavar="VARIATION", type=str, default="NONE", help="Systematic variation (TYPE1=VALUE:TYPE2=VALUE2;...)")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
     args = parser.parse_args()
     setup_logging(args.debug)

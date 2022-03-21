@@ -72,9 +72,10 @@ cd $OUTPUTDIR
 echo "Input file:          $INPUTFILE"
 echo "Output directory:    $OUTPUTDIR"
 echo "Macro:               $MACRO"
+echo "Variation:           $VARIATION"
 
 if [ "$VARIATION" != "NONE" ]; then
-	VARIATIONS=(`echo $VARIATION | tr ';' ' '`)
+	VARIATIONS=(`echo $VARIATION | tr ':' ' '`)
 	for VAR in ${VARIATIONS[@]}; do
 		VARKEY=$(echo $VAR | cut -d '=' -f 1)
 		VARVALUE=$(echo $VAR | cut -d '=' -f 2)
@@ -102,12 +103,12 @@ if [ "$VARIATION" != "NONE" ]; then
 		fi
 
 		if [ "$VARKEY" == "PTCUTCHARGED" ]; then
-			export CONFIG_PTCUT=$VARVALUE
+			export CONFIG_CHPTCUT=$VARVALUE
 			let "HASKEY=1"
 		fi
 
 		if [ "$VARKEY" == "PTCUTNEUTRAL" ]; then
-			export CONFIG_PTCUT=$VARVALUE
+			export CONFIG_NEPTCUT=$VARVALUE
 			let "HASKEY=1"
 		fi
 

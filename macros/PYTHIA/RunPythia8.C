@@ -270,34 +270,34 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
             pythia.setDecay();
         } 
     }
-    double ptcutCharged=0., ptcutneutral=0.;
+    double ptcutCharged=0., ptcutNeutral=0.;
     if(gSystem->Getenv("CONFIG_PTCUT")) {
         float val = atof(gSystem->Getenv("CONFIG_PTCUT"));
         if(val > 0) {
             std::cout << "Applying same ptcut on charged and neutral particles: "  << val << " MeV/c"  << std::endl;
-            ptcutCharged = val / 100.;
-            ptcutNeutral = val / 100.;
+            ptcutCharged = val / 1000.;
+            ptcutNeutral = val / 1000.;
         } else {
             std::cout << "Applying std. ptcuts: 150 MeV/c (charged), 300 MeV/c (neutra)" << std::endl;
             ptcutCharged = 0.15;
             ptcutNeutral = 0.3;
         }
     }
-    if(gSystem->Getenv("CONFIG_PTCUTCHARGED")) {
-        float val = atof(gSystem->Getenv("CONFIG_PTCUTCHARGED"));
+    if(gSystem->Getenv("CONFIG_CHPTCUT")) {
+        float val = atof(gSystem->Getenv("CONFIG_CHPTCUT"));
         if(val > 0) {
             std::cout << "Applying ptcut on charged particles: "  << val << " MeV/c"  << std::endl;
-            ptcutCharged = val / 100.;
+            ptcutCharged = val / 1000.;
         } else {
             std::cout << "Applying std. ptcut charged particles: 150 MeV/c" << std::endl;
             ptcutCharged = 0.15;
         }
     }
-    if(gSystem->Getenv("CONFIG_PTCUTNEUTRAL")) {
-        float val = atof(gSystem->Getenv("CONFIG_PTCUTNEUTRAL"));
+    if(gSystem->Getenv("CONFIG_NEPTCUT")) {
+        float val = atof(gSystem->Getenv("CONFIG_NEPTCUT"));
         if(val > 0) {
             std::cout << "Applying ptcut on neutral particles: "  << val << " MeV/c"  << std::endl;
-            ptcutNeutral = val / 100.;
+            ptcutNeutral = val / 1000.;
         } else {
             std::cout << "Applying std. ptcut neutral particles: 300 MeV/c" << std::endl;
             ptcutNeutral = 0.3;
