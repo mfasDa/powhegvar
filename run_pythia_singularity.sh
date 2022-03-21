@@ -7,7 +7,6 @@ OUTPUTBASE=$4
 PYVERSION=$5
 PYTHIAMACRO=$6
 VARIATION=$7
-VARVALUE=$8
 
 PYTHIAFROMROOT=0
 INITALICE=0
@@ -74,28 +73,58 @@ echo "Input file:          $INPUTFILE"
 echo "Output directory:    $OUTPUTDIR"
 echo "Macro:               $MACRO"
 
-if [ "$VARIATION" == "PDFSET" ]; then
-	export CONFIG_PDFSET=$VARVALUE
-fi
+if [ "$VARIATION" != "NONE" ]; then
+	VARIATIONS=(`echo $VARIATION | tr ';' ' '`)
+	for VAR in ${VARIATIONS[@]}; do
+		VARKEY=$(echo $VAR | cut -d '=' -f 1)
+		VARVALUE=$(echo $VAR | cut -d '=' -f 2)
+        	echo "Setting variation: $VARKEY = $VARVALUE"
 
-if [ "$VARIATION" == "TUNE" ]; then
-	export CONFIG_TUNE=$VARVALUE
-fi
+		HASKEY=0
+		if [ "$VARKEY" == "PDFSET" ]; then
+			export CONFIG_PDFSET=$VARVALUE
+			let "HASKEY=1"
+		fi
 
-if [ "$VARIATION" == "MPI" ]; then
-	export CONFIG_MPI=$VARVALUE
-fi
+		if [ "$VARKEY" == "TUNE" ]; then
+			export CONFIG_TUNE=$VARVALUE
+			let "HASKEY=1"
+		fi
 
-if [ "$VARIATION" == "PTCUT" ]; then
-	export CONFIG_PTCUT=$VARVALUE
-fi
+		if [ "$VARKEY" == "MPI" ]; then
+			export CONFIG_MPI=$VARVALUE
+			let "HASKEY=1"
+		fi
 
-if [ "$VARIATION" == "DECAY" ]; then
-	export CONFIG_DECAY=$VARVALUE
-fi
+		if [ "$VARKEY" == "PTCUT" ]; then
+			export CONFIG_PTCUT=$VARVALUE
+			let "HASKEY=1"
+		fi
 
-if [ "$VARIATION" == "RECOMBINATIONSCHEME" ]; then
-	export CONFIG_RECOMBINATIONSCHEME=$VARVALUE
+		if [ "$VARKEY" == "PTCUTCHARGED" ]; then
+			export CONFIG_PTCUT=$VARVALUE
+			let "HASKEY=1"
+		fi
+
+		if [ "$VARKEY" == "PTCUTNEUTRAL" ]; then
+			export CONFIG_PTCUT=$VARVALUE
+			let "HASKEY=1"
+		fi
+
+		if [ "$VARKEY" == "DECAY" ]; then
+			export CONFIG_DECAY=$VARVALUE
+			let "HASKEY=1"
+		fi
+
+		if [ "$VARKEY" == "RECOMBINATIONSCHEME" ]; then
+			export CONFIG_RECOMBINATIONSCHEME=$VARVALUE
+			let "HASKEY=1"
+		fi
+
+		if [ $HASKEY -eq 0 ]; then
+			echo "Key $VARKEY not processed"
+		fi
+	done
 fi
 
 CMD=$(printf "root -l -b -q \'%s(\"%s\")\'>> pythia.log" $MACRO $INPUTFILE)

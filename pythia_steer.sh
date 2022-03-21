@@ -6,7 +6,6 @@ OUTPUTBASE=$3
 PYVERSION=$4
 PYTHIAMACRO=$5
 VARIATION=$6
-VARVALUE=$7
 
 SLOT=$SLURM_ARRAY_TASK_ID
 
@@ -30,7 +29,7 @@ FILELIST=$OUTPUTBASE/filelists/pwhgin$SLOT.txt
 echo "Processing files from $FILELIST"
 cat $FILELIST
 while read INPUTFILE; do
-    execmd=$(printf "%s %s %s %s %s %s %s %s %s" $EXEC $CLUSTER $SOURCEDIR $INPUTFILE $OUTPUTBASE $PYVERSION $PYTHIAMACRO $VARIATION $VARVALUE)
+    execmd=$(printf "%s %s %s %s %s %s %s %s" $EXEC $CLUSTER $SOURCEDIR $INPUTFILE $OUTPUTBASE $PYVERSION $PYTHIAMACRO $VARIATION)
     containercmd=
     if [ "x$CONTAINER" != "x" ]; then
         containercmd=$(printf "singularity exec %s %s %s" "$BINDS" $CONTAINER "$execmd")

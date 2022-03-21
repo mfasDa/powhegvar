@@ -270,13 +270,38 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
             pythia.setDecay();
         } 
     }
-    bool applyPtCut = false;
+    double ptcutCharged=0., ptcutneutral=0.;
     if(gSystem->Getenv("CONFIG_PTCUT")) {
-        int val = atoi(gSystem->Getenv("CONFIG_PTCUT"));
+        float val = atof(gSystem->Getenv("CONFIG_PTCUT"));
         if(val > 0) {
-            std::cout << "Applying det. level ptcut" << std::endl;
-            applyPtCut = true;
-        } 
+            std::cout << "Applying same ptcut on charged and neutral particles: "  << val << " MeV/c"  << std::endl;
+            ptcutCharged = val / 100.;
+            ptcutNeutral = val / 100.;
+        } else {
+            std::cout << "Applying std. ptcuts: 150 MeV/c (charged), 300 MeV/c (neutra)" << std::endl;
+            ptcutCharged = 0.15;
+            ptcutNeutral = 0.3;
+        }
+    }
+    if(gSystem->Getenv("CONFIG_PTCUTCHARGED")) {
+        float val = atof(gSystem->Getenv("CONFIG_PTCUTCHARGED"));
+        if(val > 0) {
+            std::cout << "Applying ptcut on charged particles: "  << val << " MeV/c"  << std::endl;
+            ptcutCharged = val / 100.;
+        } else {
+            std::cout << "Applying std. ptcut charged particles: 150 MeV/c" << std::endl;
+            ptcutCharged = 0.15;
+        }
+    }
+    if(gSystem->Getenv("CONFIG_PTCUTNEUTRAL")) {
+        float val = atof(gSystem->Getenv("CONFIG_PTCUTNEUTRAL"));
+        if(val > 0) {
+            std::cout << "Applying ptcut on neutral particles: "  << val << " MeV/c"  << std::endl;
+            ptcutNeutral = val / 100.;
+        } else {
+            std::cout << "Applying std. ptcut neutral particles: 300 MeV/c" << std::endl;
+            ptcutNeutral = 0.3;
+        }
     }
     fastjet::RecombinationScheme scheme = fastjet::E_scheme;
     if(gSystem->Getenv("CONFIG_RECOMBINATIONSCHEME")) {
@@ -446,16 +471,14 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
             //if (abs(eta) > 0.9)
             if (std::abs(eta) > kMaxEta)
                 continue;
-            if(applyPtCut) {
-                if(charge == 0) {
-                    // ptcut on neutral particles
-                    if (pt < 0.3)
-                       continue;
-                } else {
-                    // ptcut on charged particles
-                    if (pt < 0.15)
-                       continue;
-                }
+            if(charge == 0) {
+                // ptcut on neutral particles
+                if (pt < ptcutNeutral)
+                    continue;
+            } else {
+                // ptcut on charged particles
+                if (pt < ptcutCharged)
+                   continue;
             }
 
             input_particles.push_back(fastjet::PseudoJet(part->Px(), part->Py(), part->Pz(), part->Energy()));

@@ -66,12 +66,6 @@ def submit_merge(cluster: str, outputbase: str, rootfile: str, partition: str, d
     return submit(command, cluster, "merge_py", logfile, partition, 0, "01:00:00", "4G", dependency) 
 
 def submit_pythia(cluster: str, outputdir: str, inputdir: str, chunksize: int, pythiaver: str, macro: str, variation: str, partition: str, timelimit: str = "10:00:00") -> int:
-    vartype = "NONE"
-    varvalue = "NONE"
-    if ":" in variation:
-        tokens = variation.split(":")
-        vartype = tokens[0]
-        varvalue = tokens[1]
     files = find_pwgevents(inputdir)
     logging.info("Found %d files", len(files))
     filelists = split(os.path.join(outputdir, "filelists"), files, chunksize)
@@ -80,10 +74,10 @@ def submit_pythia(cluster: str, outputdir: str, inputdir: str, chunksize: int, p
     if pythiaver == "original":
         # Hadi's original script, interfaced via rootpythia8
         script = os.path.join(repo, "pythia_steer_original.sh")
-        command = "{} {} {} {} {} {}".format(script, cluster, repo, outputdir, vartype, varvalue)
+        command = "{} {} {} {} \"{}\"".format(script, cluster, repo, outputdir, variation)
     else:
         script = os.path.join(repo, "pythia_steer.sh")
-        command = "{} {} {} {} {} {} {} {}".format(script, cluster, repo, outputdir, pythiaver, macro, vartype, varvalue)
+        command = "{} {} {} {} {} {} \"{}\"".format(script, cluster, repo, outputdir, pythiaver, macro, variation)
     logfile = build_logfile(os.path.join(outputdir, "logs", "pythia%a.log"))
     return submit(command, cluster, "py_{}".format(pythiaver), logfile, partition, len(filelists), timelimit)
 
@@ -106,7 +100,7 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--macro", metavar="MACRO", type=str, default="default", help="PYTHIA macro (from repository)")
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="SLURM partition")
     parser.add_argument("-t", "--timelimit", metavar="TIMELIMIT", type=str, default="10:00:00", help="Max allowed time (in h:m::s)")
-    parser.add_argument("-v", "--variation", metavar="VARIATION", type=str, default="NONE", help="Systematic variation (TYPE:VALUE)")
+    parser.add_argument("-v", "--variation", metavar="VARIATION", type=str, default="NONE", help="Systematic variation (TYPE1=VALUE;TYPE2=VALUE2;...)")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
     args = parser.parse_args()
     setup_logging(args.debug)
