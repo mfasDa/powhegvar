@@ -9,14 +9,17 @@ VARIATION=$6
 
 SLOT=$SLURM_ARRAY_TASK_ID
 
-CONTAINER=
-BINDS=
+CONTAINERCOMMAND=
 if [ "$CLUSTER" == "CADES" ]; then
     CONTAINER=/nfs/home/mfasel_alice/mfasel_cc7_alice.simg
     BINDS="-B /home:/home -B /nfs:/nfs -B /lustre:/lustre"
+    CONTAINERCOMMAND=$(printf "singularity exec %s %s" "$BINDS" $CONTAINER)
 
     module load PE-gnu
     module load singularity
+elif [ "$CLUSTER"  == "CORI" ]; then
+    module load shifter
+    CONTAINERCOMMAND="shifter"
 fi
 EXEC=$SOURCEDIR/run_pythia_singularity.sh
 
@@ -31,8 +34,8 @@ cat $FILELIST
 while read INPUTFILE; do
     execmd=$(printf "%s %s %s %s %s %s %s %s" $EXEC $CLUSTER $SOURCEDIR $INPUTFILE $OUTPUTBASE $PYVERSION $PYTHIAMACRO $VARIATION)
     containercmd=
-    if [ "x$CONTAINER" != "x" ]; then
-        containercmd=$(printf "singularity exec %s %s %s" "$BINDS" $CONTAINER "$execmd")
+    if [ "x$CONTAINERCOMMAND" != "x" ]; then
+        containercmd=$(printf "%s %s" "$CONTAINERCOMMAND" "$execmd")
     else
         containercmd=$execmd
     fi

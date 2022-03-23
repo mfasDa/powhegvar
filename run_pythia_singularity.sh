@@ -31,6 +31,8 @@ fi
 MYHOME=/home/mfasel_alice
 if [ "$CLUSTER" == "CADES" ]; then
 	MYHOME=/home/mfasel_alice
+elif [ "$CLUSTER" == "CORI" ]; then
+	MYHOME=/global/homes/m/mfasel
 elif [ "$CLUSTER" == "B587" ]; then
 	MYHOME=/software/mfasel
 fi

@@ -9,14 +9,21 @@ def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str
     if cluster == "CADES":
         submitcmd += " -A birthright" 
     submitcmd += " -N 1 -n 1 -c {}".format(cpus)
-    submitcmd += " --partition {}".format(partition)
+    if cluster == "CORI":
+        submitcmd += " --qos={}".format(partition)
+    else:
+        submitcmd += " --partition {}".format(partition)
     submitcmd += " -J {}".format(jobname)
     submitcmd += " -o {}".format(logfile)
-    if cluster == "CADES":
+    if cluster == "CADES" or cluster == "CORI":
         submitcmd += " --time={}".format(timelimit)
         submitcmd += " --mem={}".format(memory)
     if dependency > -1:
         submitcmd += " -d {}".format(dependency)
+    if cluster == "CORI":
+        submitcmd += " --constraint=haswell"
+        submitcmd += " --licenses=cvmfs,cfs"
+        submitcmd += " --image=docker:mfasel/cc7-alice:latest"
     return submitcmd
 
 
