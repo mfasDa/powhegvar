@@ -13,7 +13,7 @@ from helpers.modules import find_powheg_releases
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, njobs: int, minslot: int = 0, mem: int = 4, hours: int = 10, reweightmode: bool = False, reweightID: int = -1):
+def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, partition: str, njobs: int, minslot: int = 0, mem: int = 4, hours: int = 10, reweightmode: bool = False, reweightID: int = -1):
     print("Submitting POWHEG release {}".format(powheg_version))
     logdir = os.path.join(workdir, "POWHEG_{}".format(powheg_version), "logs")
     if not os.path.exists(logdir):
@@ -22,7 +22,7 @@ def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: st
     executable = os.path.join(repo, "powheg_steer.sh")
     runcmd = "{} {} {} {} {} {} {} {}".format(executable, cluster, repo, workdir, powheg_version, powheg_input, 1 if reweightmode else 0, reweightID)
     jobname = "pjj13T_{}".format(powheg_version)
-    return submit_range(runcmd, cluster, jobname, logfile, "high_mem_cd", {"first": minslot, "last": minslot+njobs-1}, "{}:00:00".format(hours), "{}G".format(mem))
+    return submit_range(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, {"first": minslot, "last": minslot+njobs-1}, "{}:00:00".format(hours), "{}G".format(mem))
 
 
 def prepare_outputlocation(outputlocation: str):
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     releases = []
-    release_all = find_powheg_releases()
+    release_all = find_powheg_releases() if cluster == "CADES" else ["default"]
     if args.version == "all":
         releases = release_all
     else:
@@ -71,6 +71,6 @@ if __name__ == "__main__":
         releases.append(args.version)
         print("Simulating with POWHEG: {}".format(releases))
     for pwhg in releases:
-        pwhgjob = submit_job(cluster, args.workdir, pwhg, args.input, args.njobs, args.minslot, args.mem, args.hours)
+        pwhgjob = submit_job(cluster, args.workdir, pwhg, args.input, args.partition, args.njobs, args.minslot, args.mem, args.hours)
         logging.info("Job ID for POWHEG %s: %d", pwhg, pwhgjob)
 	

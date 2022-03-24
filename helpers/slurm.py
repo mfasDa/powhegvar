@@ -32,6 +32,7 @@ def submit(command: str, cluster: str, jobname: str, logfile: str, partition: st
     if arraysize > 0:
         submitcmd += " --array=0-{}".format(arraysize-1)
     submitcmd += " {}".format(command)
+    logging.debug(submitcmd)
     submitResult = subprocess.run(submitcmd, shell=True, stdout=subprocess.PIPE)
     sout = submitResult.stdout.decode("utf-8")
     toks = sout.split(" ")
@@ -42,6 +43,7 @@ def submit_range(command: str, cluster: str, jobname: str, logfile: str, partiti
     submitcmd = ncorejob(cluster, 1, jobname, logfile, partition, timelimit, memory, dependency)
     submitcmd += " --array={}-{}".format(arrayrange["first"], arrayrange["last"])
     submitcmd += " {}".format(command)
+    logging.debug(submitcmd)
     submitResult = subprocess.run(submitcmd, shell=True, stdout=subprocess.PIPE)
     sout = submitResult.stdout.decode("utf-8")
     toks = sout.split(" ")
