@@ -32,6 +32,7 @@ MYHOME=/home/mfasel_alice
 if [ "$CLUSTER" == "CADES" ]; then
 	MYHOME=/home/mfasel_alice
 elif [ "$CLUSTER" == "CORI" ]; then
+	source /usr/share/Modules/init/bash
 	MYHOME=/global/homes/m/mfasel
 elif [ "$CLUSTER" == "B587" ]; then
 	MYHOME=/software/mfasel

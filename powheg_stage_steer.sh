@@ -19,7 +19,7 @@ if [ "$CLUSTER" == "CADES" ]; then
     module load singularity
 elif [ "$CLUSTER"  == "CORI" ]; then
     module load shifter
-    CONTAINERCOMMAND="shifter"
+    CONTAINERCOMMAND="shifter --module=cvmfs"
 fi
 EXEC=$SOURCEDIR/run_powheg_stage_singularity.sh
 

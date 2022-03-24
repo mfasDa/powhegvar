@@ -16,16 +16,17 @@ if [ "$CLUSTER" == "CADES" ]; then
     SIMSOFT=/nfs/data/alice-dev/mfasel_alice/simsoft
     module use $SIMSOFT/Modules/
     module load POWHEG/$POWHEG_VERSION
-elif [ "$CLUSTER" == "CADES" ]; then
+elif [ "$CLUSTER" == "CORI" ]; then
+    source /usr/share/Modules/init/bash
     MYHOME=/global/homes/m/mfasel
     source $MYHOME/alice_setenv
     ALIENV=`which alienv`
-    eval `$ALIENV --no-refresh printenv powheg/latest` 
+    eval `$ALIENV --no-refresh printenv POWHEG/latest` 
 else 
     MYHOME=/software/mfasel
     source $MYHOME/alice_setenv
     ALIENV=`which alienv`
-    eval `$ALIENV --no-refresh printenv powheg/latest`
+    eval `$ALIENV --no-refresh printenv POWHEG/latest`
 fi
 module list
 
