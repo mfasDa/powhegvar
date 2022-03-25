@@ -13,14 +13,14 @@ from helpers.modules import find_powheg_releases
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, partition: str, njobs: int, minslot: int = 0, mem: int = 4, hours: int = 10, reweightmode: bool = False, reweightID: int = -1):
+def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, partition: str, njobs: int, minslot: int = 0, mem: int = 4, hours: int = 10, reweightmode: bool = False, reweightID: int = -1, oldgrids: str = "NONE"):
     print("Submitting POWHEG release {}".format(powheg_version))
     logdir = os.path.join(workdir, "POWHEG_{}".format(powheg_version), "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
     logfile = os.path.join(logdir, "joboutput%a.log")
     executable = os.path.join(repo, "powheg_steer.sh")
-    runcmd = "{} {} {} {} {} {} {} {}".format(executable, cluster, repo, workdir, powheg_version, powheg_input, 1 if reweightmode else 0, reweightID)
+    runcmd = "{} {} {} {} {} {} {} {} {}".format(executable, cluster, repo, workdir, powheg_version, powheg_input, 1 if reweightmode else 0, reweightID, oldgrids)
     jobname = "pjj13T_{}".format(powheg_version)
     return submit_range(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, {"first": minslot, "last": minslot+njobs-1}, "{}:00:00".format(hours), "{}G".format(mem))
 
@@ -39,6 +39,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="Partition")
     parser.add_argument("-r", "--reweight", action="store_true", help="Reweight mode")
     parser.add_argument("-w", "--weightid", metavar="WEIGHTID", type=int, default=0, help="ID of the weight")
+    parser.add_argument("-g", "--grids", metavar="GRIDS", type=str, default="NONE", help="Old grids (default: NONE")
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
@@ -71,6 +72,6 @@ if __name__ == "__main__":
         releases.append(args.version)
         print("Simulating with POWHEG: {}".format(releases))
     for pwhg in releases:
-        pwhgjob = submit_job(cluster, args.workdir, pwhg, args.input, args.partition, args.njobs, args.minslot, args.mem, args.hours)
+        pwhgjob = submit_job(cluster, args.workdir, pwhg, args.input, args.partition, args.njobs, args.minslot, args.mem, args.hours, oldgrids=args.grids)
         logging.info("Job ID for POWHEG %s: %d", pwhg, pwhgjob)
 	

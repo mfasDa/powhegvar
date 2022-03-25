@@ -11,7 +11,7 @@ from helpers.modules import find_powheg_releases
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, minpdf: int, maxpdf: int, minid: int, njobs: int, mem: int = 4, hours: int = 10, dependency: int = 0):
+def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, minpdf: int, maxpdf: int, minid: int, partition: str, njobs: int, mem: int = 4, hours: int = 10, dependency: int = 0):
     print("Submitting POWHEG release {}".format(powheg_version))
     logdir = os.path.join(workdir, "logs")
     if not os.path.exists(logdir):
@@ -20,7 +20,7 @@ def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: st
     executable = os.path.join(repo, "powheg_steer_pdf.sh")
     runcmd = "{} {} {} {} {} {} {} {} {}".format(executable, cluster, repo, workdir, powheg_version, powheg_input, minpdf, maxpdf, minid)
     jobname = "pdfvar".format(powheg_version)
-    return submit(runcmd, cluster, jobname, logfile, "high_mem_cd", njobs, "{}:00:00".format(hours), "{}G".format(mem), dependency=dependency)
+    return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, njobs, "{}:00:00".format(hours), "{}G".format(mem), dependency=dependency)
 
 def find_number_of_input_files(workdir: str):
     pwgdirs = [x for x in os.listdir(workdir) if os.path.isfile(os.path.join(workdir, x, "pwgevents.lhe"))]
@@ -54,11 +54,12 @@ if __name__ == "__main__":
     if njobs == 0:
         logging.error("Didn't find slot dirs with pwgevents.lhe in %s", args.workdir)
         sys.exit(1)
-    releases_all = find_powheg_releases()
-    if not args.version in releases_all:
+    releases_all = find_powheg_releases() if cluster == "CADES" else ["default"]
+    request_release = args.version if cluster == "CADES" else "default"
+    if not request_release in releases_all:
         print("requested POWHEG not found: {}".format(args.version))
         sys.exit(1)
     print("Simulating with POWHEG: {}".format(args.version))
-    pwhgjob = submit_job(cluster, args.workdir, args.version, args.input, args.minpdf, args.maxpdf, args.minid, njobs, args.mem, args.hours, args.dependency)
+    pwhgjob = submit_job(cluster, args.workdir, args.version, args.input, args.minpdf, args.maxpdf, args.minid, args.partition, njobs, args.mem, args.hours, args.dependency)
     logging.info("Job ID: %d", pwhgjob)
 	

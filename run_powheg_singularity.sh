@@ -8,6 +8,7 @@ POWHEG_INPUT=$5
 SLOT=$6
 REWEIGHTMODE=$7
 WEIGHTID=$8
+OLDGRIDS=$9
 
 MYHOME=
 if [ "$CLUSTER" == "CADES" ]; then
@@ -38,6 +39,26 @@ if [ ! -d $JOBDIR ]; then mkdir -p $JOBDIR; fi
 cd $JOBDIR
 
 cp $POWHEG_INPUT $PWD/powheg.input
+
+if [ "$OLDGRIDS" != "NONE" ]; then
+    echo "Using POWHEG grids from $OLDGRIDS"
+    if [ -d $OLDGRIDS ]; then
+        cp $OLDGRIDS/*.dat $PWD/
+        cp $OLDGRIDS/*.top $PWD/
+        GRIDFILES=(FlavRegList bornequiv pwhg_checklimits realequiv realequivregions virtequiv)
+        for f in ${GRIDFILES[@]}; do
+            if [ -f $OLDGRIDS/$f ]; then
+                cp $OLDGRIDS/$f $PWD/
+            else
+                echo "POWHEG grid file $OLDGRIDS/$f missing ..."
+            fi
+        done
+    else
+        echo "Grids directory $OLDGRIDS not existing ..."
+    fi
+else
+    echo "Creating new grids ..."
+fi
 
 # Set the randomseed
 echo "iseed $RANDOM" >> powheg.input
