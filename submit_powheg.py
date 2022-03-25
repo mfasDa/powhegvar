@@ -15,7 +15,10 @@ repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
 def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, partition: str, njobs: int, minslot: int = 0, mem: int = 4, hours: int = 10, reweightmode: bool = False, reweightID: int = -1, oldgrids: str = "NONE"):
     print("Submitting POWHEG release {}".format(powheg_version))
-    logdir = os.path.join(workdir, "POWHEG_{}".format(powheg_version), "logs")
+    powheg_version_string = powheg_version
+    if "VO_ALICE@POWHEG::" in powheg_version_string:
+        powheg_version_string = powheg_version_string.replace("VO_ALICE@POWHEG::", "")
+    logdir = os.path.join(workdir, "POWHEG_{}".format(powheg_version_string), "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
     logfile = os.path.join(logdir, "joboutput%a.log")

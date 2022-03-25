@@ -19,10 +19,15 @@ if [ "$CLUSTER" == "CADES" ]; then
     module load POWHEG/$POWHEG_VERSION
 elif [ "$CLUSTER" == "CORI" ]; then
     source /usr/share/Modules/init/bash
-    MYHOME=/global/homes/m/mfasel
-    source $MYHOME/alice_setenv
-    ALIENV=`which alienv`
-    eval `$ALIENV --no-refresh printenv POWHEG/latest`
+    MYHOME=$HOME
+    if [ "x(echo $POWHEG_VERSION | grep VO_ALICE)" != "x" ]; then
+        eval `/cvmfs/alice.cern.ch/bin/alienv printenv $POWHEG_VERSION`
+    else
+        # Take local build from Markus
+        source /global/homes/m/mfasel/alice_setenv
+        ALIENV=`which alienv`
+        eval `$ALIENV --no-refresh printenv POWHEG/latest` 
+    fi
 else 
     MYHOME=/software/mfasel
     source $MYHOME/alice_setenv

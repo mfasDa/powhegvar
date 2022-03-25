@@ -11,30 +11,43 @@ WEIGHTID=$8
 OLDGRIDS=$9
 
 MYHOME=
+POWHEG_VERSION_NAME=
 if [ "$CLUSTER" == "CADES" ]; then
     MYHOME=/nfs/home/mfasel_alice
     source /opt/rh/devtoolset-7/enable
     SIMSOFT=/nfs/data/alice-dev/mfasel_alice/simsoft
     module use $SIMSOFT/Modules/
     module load POWHEG/$POWHEG_VERSION
+    POWHEG_VERSION_NAME=$POWHEG_VERSION
 elif [ "$CLUSTER" == "CORI" ]; then
     source /usr/share/Modules/init/bash
-    MYHOME=/global/homes/m/mfasel
-    source $MYHOME/alice_setenv
-    ALIENV=`which alienv`
-    eval `$ALIENV --no-refresh printenv POWHEG/latest` 
+    MYHOME=$HOME
+    if [ "x(echo $POWHEG_VERSION | grep VO_ALICE)" != "x" ]; then
+        eval `/cvmfs/alice.cern.ch/bin/alienv printenv $POWHEG_VERSION`
+        POWHEG_VERSION_NAME=$(echo $POWHEG_VERSION | cut -d ":" -f 3)
+    else
+        source /global/homes/m/mfasel/alice_setenv
+        ALIENV=`which alienv`
+        eval `$ALIENV --no-refresh printenv POWHEG/latest` 
+        POWHEG_VERSION_NAME=$POWHEG_VERSION
+    fi
 else 
     MYHOME=/software/mfasel
-    source $MYHOME/alice_setenv
-    ALIENV=`which alienv`
-    eval `$ALIENV --no-refresh printenv POWHEG/latest`
+    if [ "x(echo $POWHEG_VERSION | grep VO_ALICE)" != "x" ]; then
+        eval `/cvmfs/alice.cern.ch/bin/alienv printenv $POWHEG_VERSION`
+    else
+        source $MYHOME/alice_setenv
+        ALIENV=`which alienv`
+        eval `$ALIENV --no-refresh printenv POWHEG/latest`
+        POWHEG_VERSION_NAME=$POWHEG_VERSION
+    fi
 fi
 module list
 
 # Setup LHAPDF 
 source $MYHOME/lhapdf_data_setenv 
 
-JOBDIR=$(printf "%s/POWHEG_%s/%04d" $OUTPUTBASE $POWHEG_VERSION $SLOT)
+JOBDIR=$(printf "%s/POWHEG_%s/%04d" $OUTPUTBASE $POWHEG_VERSION_NAME $SLOT)
 if [ ! -d $JOBDIR ]; then mkdir -p $JOBDIR; fi
 cd $JOBDIR
 

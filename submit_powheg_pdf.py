@@ -54,11 +54,15 @@ if __name__ == "__main__":
     if njobs == 0:
         logging.error("Didn't find slot dirs with pwgevents.lhe in %s", args.workdir)
         sys.exit(1)
-    releases_all = find_powheg_releases() if cluster == "CADES" else ["default"]
-    request_release = args.version if cluster == "CADES" else "default"
-    if not request_release in releases_all:
-        print("requested POWHEG not found: {}".format(args.version))
-        sys.exit(1)
+    request_release = args.version
+    if cluster == "CADES":
+        releases_all = find_powheg_releases() if cluster == "CADES" else ["default"]
+        if not request_release in releases_all:
+            print("requested POWHEG not found: {}".format(args.version))
+            sys.exit(1)
+    else:
+        if not "VO_ALICE" in request_release:
+            request_release = "default"
     print("Simulating with POWHEG: {}".format(args.version))
     pwhgjob = submit_job(cluster, args.workdir, args.version, args.input, args.minpdf, args.maxpdf, args.minid, args.partition, njobs, args.mem, args.hours, args.dependency)
     logging.info("Job ID: %d", pwhgjob)
