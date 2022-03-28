@@ -270,7 +270,7 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
             pythia.setDecay();
         } 
     }
-    double ptcutCharged=0., ptcutNeutral=0.;
+    double ptcutCharged=0., ptcutNeutral=0., ecutCharged = 0., ecutNeutral=0.;
     if(gSystem->Getenv("CONFIG_PTCUT")) {
         float val = atof(gSystem->Getenv("CONFIG_PTCUT"));
         if(val > 0) {
@@ -301,6 +301,38 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
         } else {
             std::cout << "Applying std. ptcut neutral particles: 300 MeV/c" << std::endl;
             ptcutNeutral = 0.3;
+        }
+    }
+    if(gSystem->Getenv("CONFIG_ECUT")) {
+        float val = atof(gSystem->Getenv("CONFIG_ECUT"));
+        if(val > 0) {
+            std::cout << "Applying same energy cut on charged and neutral particles: "  << val << " MeV"  << std::endl;
+            ecutCharged = val / 1000.;
+            ecutNeutral = val / 1000.;
+        } else {
+            std::cout << "Applying std. energy cuts: 150 MeV/c (charged), 300 MeV/c (neutra)" << std::endl;
+            ecutCharged = 0.15;
+            ecutNeutral = 0.3;
+        }
+    }
+    if(gSystem->Getenv("CONFIG_CHECUT")) {
+        float val = atof(gSystem->Getenv("CONFIG_CHECUT"));
+        if(val > 0) {
+            std::cout << "Applying energy cut on charged particles: "  << val << " MeV"  << std::endl;
+            ecutCharged = val / 1000.;
+        } else {
+            std::cout << "Applying std. energy cut charged particles: 150 MeV" << std::endl;
+            ecutCharged = 0.15;
+        }
+    }
+    if(gSystem->Getenv("CONFIG_NEECUT")) {
+        float val = atof(gSystem->Getenv("CONFIG_NEECUT"));
+        if(val > 0) {
+            std::cout << "Applying energy cut on neutral particles: "  << val << " MeV/c"  << std::endl;
+            ecutNeutral = val / 1000.;
+        } else {
+            std::cout << "Applying std. energy cut neutral particles: 300 MeV/c" << std::endl;
+            ecutNeutral = 0.3;
         }
     }
     fastjet::RecombinationScheme scheme = fastjet::E_scheme;
@@ -467,6 +499,7 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
 
             Float_t eta = part->Eta();
             Float_t pt = part->Pt();
+            Float_t energy = part->Energy();
 
             //if (abs(eta) > 0.9)
             if (std::abs(eta) > kMaxEta)
@@ -475,10 +508,14 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
                 // ptcut on neutral particles
                 if (pt < ptcutNeutral)
                     continue;
+                if (energy < ecutNeutral)
+                    continue;
             } else {
                 // ptcut on charged particles
                 if (pt < ptcutCharged)
                    continue;
+                if (energy < ecutCharged)
+                    continue;
             }
 
             input_particles.push_back(fastjet::PseudoJet(part->Px(), part->Py(), part->Pz(), part->Energy()));

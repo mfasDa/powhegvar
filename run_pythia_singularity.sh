@@ -115,6 +115,21 @@ if [ "$VARIATION" != "NONE" ]; then
 			let "HASKEY=1"
 		fi
 
+		if [ "$VARKEY" == "ECUT" ]; then
+			export CONFIG_ECUT=$VARVALUE
+			let "HASKEY=1"
+		fi
+
+		if [ "$VARKEY" == "ECUTCHARGED" ]; then
+			export CONFIG_CHECUT=$VARVALUE
+			let "HASKEY=1"
+		fi
+
+		if [ "$VARKEY" == "ECUTNEUTRAL" ]; then
+			export CONFIG_NEECUT=$VARVALUE
+			let "HASKEY=1"
+		fi
+
 		if [ "$VARKEY" == "DECAY" ]; then
 			export CONFIG_DECAY=$VARVALUE
 			let "HASKEY=1"
