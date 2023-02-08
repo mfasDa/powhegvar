@@ -13,7 +13,7 @@ SLOT=$SLURM_ARRAY_TASK_ID
 
 CONTAINERCOMMAND=
 if [ "$CLUSTER" == "CADES" ]; then
-    CONTAINERREPO=/nfs/data/alice-dev/mfasel
+    CONTAINERREPO=/nfs/data/alice-dev/mfasel_alice
     CONTAINER=mfasel_cc7_alice.simg
     BINDS="-B /home:/home -B /nfs:/nfs -B /lustre:/lustre"
     CONTAINERCOMMAND=$(printf "singularity exec %s %s/%s" "$BINDS" $CONTAINERREPO $CONTAINER)

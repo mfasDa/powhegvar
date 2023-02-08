@@ -11,7 +11,7 @@ SLOT=$SLURM_ARRAY_TASK_ID
 
 CONTAINERCOMMAND=
 if [ "$CLUSTER" == "CADES" ]; then
-    CONTAINERREPO=/nfs/data/alice-dev/mfasel
+    CONTAINERREPO=/nfs/data/alice-dev/mfasel_alice
     CONTAINER=mfasel_cc7_alice.simg
     if [ "$PYVERSION" == "FromALICE" ]; then
         # ALICE builds by now use CentOS 8
