@@ -30,6 +30,7 @@ fi
 
 MYHOME=/home/mfasel_alice
 if [ "$CLUSTER" == "CADES" ]; then
+	source /usr/share/Modules/init/bash
 	MYHOME=/home/mfasel_alice
 elif [ "$CLUSTER" == "CORI" ]; then
 	source /usr/share/Modules/init/bash
@@ -132,6 +133,11 @@ if [ "$VARIATION" != "NONE" ]; then
 
 		if [ "$VARKEY" == "DECAY" ]; then
 			export CONFIG_DECAY=$VARVALUE
+			let "HASKEY=1"
+		fi
+
+		if [ "$VARKEY" == "JETTYPE" ]; then
+			export CONFIG_JETTYPE=$VARVALUE
 			let "HASKEY=1"
 		fi
 
