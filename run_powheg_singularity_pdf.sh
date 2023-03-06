@@ -12,7 +12,7 @@ MINID=$9
 
 MYHOME=
 if [ "$CLUSTER" == "CADES" ]; then
-    MYHOME=/nfs/home/mfasel_alice
+    MYHOME=/home/mfasel_alice
     source /opt/rh/devtoolset-7/enable
     SIMSOFT=/nfs/data/alice-dev/mfasel_alice/simsoft
     module use $SIMSOFT/Modules/

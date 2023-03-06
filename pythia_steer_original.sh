@@ -8,10 +8,12 @@ VARVALUE=$5
 
 SLOT=$SLURM_ARRAY_TASK_ID
 
+CONTAINERREPO=
 CONTAINER=
 BINDS=
 if [ "$CLUSTER" == "CADES" ]; then
-    CONTAINER=/nfs/home/mfasel_alice/mfasel_cc7_alice.simg
+    CONTAINERREPO=/nfs/data/alice-dev/mfasel_alice
+    CONTAINER=mfasel_cc7_alice.simg
     BINDS="-B /home:/home -B /nfs:/nfs -B /lustre:/lustre"
 
     module load PE-gnu
@@ -31,7 +33,7 @@ while read INPUTFILE; do
     execmd=$(printf "%s %s %s %s %s %s %s" $EXEC $CLUSTER $SOURCEDIR $INPUTFILE $OUTPUTBASE $VARIATION $VARVALUE)
     containercmd=
     if [ "x$CONTAINER" != "x" ]; then
-        containercmd=$(printf "singularity exec %s %s %s" "$BINDS" $CONTAINER "$execmd")
+        containercmd=$(printf "singularity exec %s %s/%s %s" "$BINDS" $CONTAINERREPO $CONTAINER "$execmd")
     else
         containercmd=$execmd
     fi
