@@ -23,9 +23,9 @@ def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: st
         os.makedirs(logdir, 0o755)
     logfile = os.path.join(logdir, "joboutput%a.log")
     executable = os.path.join(repo, "powheg_steer.sh")
-    runcmd = "{} {} {} {} {} {} {} {} {}".format(executable, cluster, repo, workdir, powheg_version, powheg_input, 1 if reweightmode else 0, reweightID, oldgrids)
+    runcmd = "{} {} {} {} {} {} {} {} {} {}".format(executable, cluster, repo, workdir, powheg_version, powheg_input, minslot, 1 if reweightmode else 0, reweightID, oldgrids)
     jobname = "pjj13T_{}".format(powheg_version)
-    return submit_range(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, {"first": minslot, "last": minslot+njobs-1}, "{}:00:00".format(hours), "{}G".format(mem))
+    return submit_range(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, {"first": 0, "last": njobs-1}, "{}:00:00".format(hours), "{}G".format(mem))
 
 
 def prepare_outputlocation(outputlocation: str):
