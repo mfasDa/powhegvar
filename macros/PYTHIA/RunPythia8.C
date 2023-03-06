@@ -198,7 +198,7 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
         std::cout << "\nseed for Random number generation is : " << sseed << std::endl;
     }
 
-    const Int_t chargedOnly = 0; // charged only or full jets
+    Int_t chargedOnly = 0; // charged only or full jets
 
     const Int_t nR = 5;
     const Float_t Rvals[nR] = {0.2, 0.3, 0.4, 0.5, 0.6}; // Cone radii
@@ -268,6 +268,16 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
         if(val > 0) {
             std::cout << "Setting Decays" << std::endl;
             pythia.setDecay();
+        } 
+    }
+    if(gSystem->Getenv("CONFIG_JETTYPE")) {
+        int val = atoi(gSystem->Getenv("CONFIG_JETTYPE"));
+        if(val == 1) {
+            std::cout << "Setting full jets" << std::endl;
+            chargedOnly = 0;
+        } else {
+            std::cout << "Setting charged jets" << std::endl;
+            chargedOnly = 1;
         } 
     }
     double ptcutCharged=0., ptcutNeutral=0., ecutCharged = 0., ecutNeutral=0.;
