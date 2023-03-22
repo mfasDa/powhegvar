@@ -13,7 +13,7 @@ from helpers.modules import find_powheg_releases
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, partition: str, njobs: int, minslot: int = 0, mem: int = 4, hours: int = 10, reweightmode: bool = False, reweightID: int = -1, oldgrids: str = "NONE"):
+def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, partition: str, njobs: int, minslot: int = 0, mem: int = 4, hours: int = 10, oldgrids: str = "NONE"):
     print("Submitting POWHEG release {}".format(powheg_version))
     powheg_version_string = powheg_version
     if "VO_ALICE@POWHEG::" in powheg_version_string:
@@ -23,8 +23,7 @@ def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: st
         os.makedirs(logdir, 0o755)
     logfile = os.path.join(logdir, "joboutput%a.log")
     executable = os.path.join(repo, "powheg_steer.sh")
-    numreweightmode =  1 if reweightmode else 0
-    runcmd = f"{executable} {cluster} {repo} {workdir} {powheg_version} {powheg_input} {minslot} {numreweightmode} {reweightID} {oldgrids}"
+    runcmd = f"{executable} {cluster} {repo} {workdir} {powheg_version} {powheg_input} {minslot} {oldgrids}"
     jobname = f"pjj13T_{powheg_input}"
     return submit_range(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, {"first": 0, "last": njobs-1}, "{}:00:00".format(hours), "{}G".format(mem))
 
@@ -46,8 +45,6 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--minslot", metavar="MINSLOT", type=int, default=0, help="Min. slot ID")
     parser.add_argument("-v", "--version", metavar="VERSION", type=str, default="all", help="POWEHG version")
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="Partition")
-    parser.add_argument("-r", "--reweight", action="store_true", help="Reweight mode")
-    parser.add_argument("-w", "--weightid", metavar="WEIGHTID", type=int, default=0, help="ID of the weight")
     parser.add_argument("-g", "--grids", metavar="GRIDS", type=str, default="NONE", help="Old grids (default: NONE")
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
@@ -63,11 +60,7 @@ if __name__ == "__main__":
     # check if the output location has already POWHEG_events
     pwgevents = find_pwgevents(args.workdir)
     if len(pwgevents):
-        if not args.reweight:
-            logging.error("Working directory not empty, output would be overwritten")
-            sys.exit(1)
-    elif args.reweight:
-        logging.error("Reweighting mode requested on input directory without POWHEG input")
+        logging.error("Working directory not empty, output would be overwritten")
         sys.exit(1)
 
     releases = []

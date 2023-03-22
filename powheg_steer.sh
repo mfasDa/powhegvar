@@ -6,9 +6,7 @@ OUTPUTBASE=$3
 POWHEG_VERSION=$4
 POWHEG_INPUT=$5
 MINSLOT=$6
-REWEIGHTMODE=$7
-WEIHGTID=$8
-OLDGRIDS=$9
+OLDGRIDS=$7
 
 SLOT=
 let "SLOT=SLURM_ARRAY_TASK_ID+MINSLOT"
@@ -35,7 +33,7 @@ elif [ "$CLUSTER"  == "CORI" ]; then
 fi
 EXEC=$SOURCEDIR/run_powheg_singularity.sh
 
-execmd=$(printf "%s %s %s %s %s %s %d %d %d %s" $EXEC $CLUSTER $SOURCEDIR $OUTPUTBASE $POWHEG_VERSION $POWHEG_INPUT $SLOT $REWEIGHTMODE $WEIHGTID $OLDGRIDS)
+execmd=$(printf "%s %s %s %s %s %s %d %d %d %s" $EXEC $CLUSTER $SOURCEDIR $OUTPUTBASE $POWHEG_VERSION $POWHEG_INPUT $SLOT $OLDGRIDS)
 containercmd=""
 if [ "x$CONTAINERCOMMAND" != "x" ]; then
     containercmd=$(printf "%s %s" "$CONTAINERCOMMAND" "$execmd")

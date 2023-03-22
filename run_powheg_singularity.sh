@@ -6,9 +6,7 @@ OUTPUTBASE=$3
 POWHEG_VERSION=$4
 POWHEG_INPUT=$5
 SLOT=$6
-REWEIGHTMODE=$7
-WEIGHTID=$8
-OLDGRIDS=$9
+OLDGRIDS=$7
 
 MYHOME=
 POWHEG_VERSION_NAME=
@@ -88,19 +86,13 @@ fi
 # Set the randomseed
 echo "iseed $RANDOM" >> powheg.input
 
-if [ $REWEIGHTMODE -gt 0 ]; then
-    if [ ! -f $PWD/pwgevents.lhe ]; then
-        echo "Cannot run reweight mode because input file with POWHEG events (pwgevents.lhe) missing"
-        exit 1
-    fi
-    echo "compute_rwgt 1" >> powheg.input
-    echo "" >> powheg.input
-fi
-
 # Start timing
 STARTSTRING=$(date "+%d.%m.%Y %H:%M:%S")
 echo "Job start: $STARTSTRING" 
 SECONDS=0
+
+echo Processing job from within: $PWD
+ls -l
 
 # The actual POWHEG task
 pwhg_main_dijet  >& pwhg.log
