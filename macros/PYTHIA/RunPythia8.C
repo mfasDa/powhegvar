@@ -93,7 +93,7 @@ public:
 
         // PDF Selection
         if(mPDFset != "default") {
-            mEngine.readString(Form("PDF:pSet = LHAPDF6:%s", mPDFset.data()));
+            mEngine.readString(Form("PDF:pSet = LHAPDF6:%s", mPDFset.c_str()));
         }
         //pythia8->ReadString("PDF:nPDFBeamB = 100822080");
         //pythia8->ReadString("PDF:pSetB = LHAPDF6:EPPS16nlo_CT14nlo_Pb208");
@@ -249,7 +249,7 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
     if(gSystem->Getenv("CONFIG_PDFSET")) {
         std::string pdfset = gSystem->Getenv("CONFIG_PDFSET");
         std::cout << "Setting pdfset: " << pdfset;
-        pythia.setPDFset(pdfset.data());    
+        pythia.setPDFset(pdfset.c_str());    
     }
     if(gSystem->Getenv("CONFIG_TUNE")) {
         int tune = atoi(gSystem->Getenv("CONFIG_TUNE"));
