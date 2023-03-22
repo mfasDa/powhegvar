@@ -17,7 +17,13 @@ echo "Running on host: $HOSTNAME"
 CONTAINERCOMMAND=
 if [ "$CLUSTER" == "CADES" ]; then
     CONTAINERREPO=/nfs/data/alice-dev/mfasel_alice
-    CONTAINER=mfasel_cc7_alice.simg
+    if [ "x(echo $POWHEG_VERSION | grep FromALICE)" != "x" ]; then
+        # ALICE builds already under CentOS 8
+        CONTAINER=mfasel_cc8_alice.simg
+    else 
+        # Custom POWHEG still using CentOS 7
+        CONTAINER=mfasel_cc7_alice.simg
+    fi
     BINDS="-B /home:/home -B /nfs:/nfs -B /lustre:/lustre"
     CONTAINERCOMMAND=$(printf "singularity exec %s %s/%s" "$BINDS" $CONTAINERREPO $CONTAINER)
 

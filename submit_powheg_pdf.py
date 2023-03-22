@@ -11,20 +11,22 @@ from helpers.modules import find_powheg_releases
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, minpdf: int, maxpdf: int, minid: int, partition: str, njobs: int, mem: int = 4, hours: int = 10, dependency: int = 0):
-    print("Submitting POWHEG release {}".format(powheg_version))
+def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, minpdf: int, maxpdf: int, minid: int, partition: str, njobs: int, minslot: int = 0, mem: int = 4, hours: int = 10, dependency: int = 0):
+    print(f"Submitting POWHEG release {powheg_version}")
     logdir = os.path.join(workdir, "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
-    logfile = os.path.join(logdir, "joboutput_{}_{}_%a.log".format(minpdf, maxpdf))
+    logfile = os.path.join(logdir, f"joboutput_{minpdf}_{maxpdf}_%a.log")
     executable = os.path.join(repo, "powheg_steer_pdf.sh")
-    runcmd = "{} {} {} {} {} {} {} {} {}".format(executable, cluster, repo, workdir, powheg_version, powheg_input, minpdf, maxpdf, minid)
-    jobname = "pdfvar".format(powheg_version)
-    return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, njobs, "{}:00:00".format(hours), "{}G".format(mem), dependency=dependency)
+    runcmd = f"{executable} {cluster} {repo} {workdir} {powheg_version} {powheg_input} {minpdf} {maxpdf} {minid} {minslot}"
+    jobname = f"pdfvar_{powheg_version}"
+    return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, njobs, f"{hours}:00:00", f"{mem}G", dependency=dependency)
 
-def find_number_of_input_files(workdir: str):
-    pwgdirs = [x for x in os.listdir(workdir) if os.path.isfile(os.path.join(workdir, x, "pwgevents.lhe"))]
-    return len(pwgdirs)
+def find_index_of_input_file_range(workdir: str) -> int:
+    pwgdirs = sorted([int(x) for x in os.listdir(workdir) if os.path.isfile(os.path.join(workdir, x, "pwgevents.lhe"))])
+    if not len(pwgdirs):
+        return (-1, -1)
+    return (pwgdirs[0], pwgdirs[len(pwgdirs)-1]) 
 
 
 if __name__ == "__main__":
@@ -50,10 +52,13 @@ if __name__ == "__main__":
     if not os.path.exists(args.workdir):
         logging.error("Working directory %s doesn't exist", args.workdir)
         sys.exit(1)
-    njobs = find_number_of_input_files(args.workdir)
-    if njobs == 0:
+    indexmin, indexmax = find_index_of_input_file_range(args.workdir)
+    logging.debug(f"Min. index: {indexmin}, max index: {indexmax}")
+    if indexmin == -1 or indexmax == -1:
         logging.error("Didn't find slot dirs with pwgevents.lhe in %s", args.workdir)
         sys.exit(1)
+    minslot = indexmin
+    njobs = indexmax - indexmin + 1
     request_release = args.version
     if cluster == "CADES":
         releases_all = find_powheg_releases() if cluster == "CADES" else ["default"]
@@ -64,6 +69,6 @@ if __name__ == "__main__":
         if not "VO_ALICE" in request_release:
             request_release = "default"
     print("Simulating with POWHEG: {}".format(args.version))
-    pwhgjob = submit_job(cluster, args.workdir, args.version, args.input, args.minpdf, args.maxpdf, args.minid, args.partition, njobs, args.mem, args.hours, args.dependency)
+    pwhgjob = submit_job(cluster, args.workdir, args.version, args.input, args.minpdf, args.maxpdf, args.minid, args.partition, njobs, minslot, args.mem, args.hours, args.dependency)
     logging.info("Job ID: %d", pwhgjob)
 	

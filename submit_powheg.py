@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 
-from curses import meta
 import os
 import argparse
 import logging
@@ -65,7 +64,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     releases = []
-    release_all = find_powheg_releases() if cluster == "CADES" else ["default"]
+    release_all = find_powheg_releases() if cluster == "CADES" else ["default", "FromALICE"]
     if args.version == "all":
         releases = release_all
     else:

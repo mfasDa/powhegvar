@@ -12,13 +12,23 @@ OLDGRIDS=$9
 
 MYHOME=
 POWHEG_VERSION_NAME=
+DOMODULE=1
 if [ "$CLUSTER" == "CADES" ]; then
     MYHOME=/home/mfasel_alice
-    source /opt/rh/devtoolset-7/enable
-    SIMSOFT=/nfs/data/alice-dev/mfasel_alice/simsoft
-    module use $SIMSOFT/Modules/
-    module load POWHEG/$POWHEG_VERSION
-    POWHEG_VERSION_NAME=$POWHEG_VERSION
+    if [ "x(echo $POWHEG_VERSION | grep FromALICE)" != "x" ]; then
+        source $MYHOME/alice_setenv
+        ALIENV=`which alienv`
+        eval `$ALIENV --no-refresh printenv POWHEG/latest` 
+        alienv list
+        let "DOMODULE=0"
+        POWHEG_VERSION_NAME=$POWHEG_VERSION
+    else 
+        source /opt/rh/devtoolset-7/enable
+        SIMSOFT=/nfs/data/alice-dev/mfasel_alice/simsoft
+        module use $SIMSOFT/Modules/
+        module load POWHEG/$POWHEG_VERSION
+        POWHEG_VERSION_NAME=$POWHEG_VERSION
+    fi
 elif [ "$CLUSTER" == "CORI" ]; then
     source /usr/share/Modules/init/bash
     MYHOME=$HOME
@@ -42,7 +52,9 @@ else
         POWHEG_VERSION_NAME=$POWHEG_VERSION
     fi
 fi
-module list
+if [ $DOMODULE -gt 0 ]; then
+    module list
+fi
 
 # Setup LHAPDF 
 source $MYHOME/lhapdf_data_setenv 
