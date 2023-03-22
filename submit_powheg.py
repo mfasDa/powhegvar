@@ -17,20 +17,21 @@ def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: st
     powheg_version_string = powheg_version
     if "VO_ALICE@POWHEG::" in powheg_version_string:
         powheg_version_string = powheg_version_string.replace("VO_ALICE@POWHEG::", "")
-    logdir = os.path.join(workdir, "POWHEG_{}".format(powheg_version_string), "logs")
+    logdir = os.path.join(workdir, f"POWHEG_{powheg_version_string}", "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
     logfile = os.path.join(logdir, "joboutput%a.log")
     executable = os.path.join(repo, "powheg_steer.sh")
-    runcmd = "{} {} {} {} {} {} {} {} {} {}".format(executable, cluster, repo, workdir, powheg_version, powheg_input, minslot, 1 if reweightmode else 0, reweightID, oldgrids)
-    jobname = "pjj13T_{}".format(powheg_version)
+    numreweightmode =  1 if reweightmode else 0
+    runcmd = f"{executable} {cluster} {repo} {workdir} {powheg_version} {powheg_input} {minslot} {numreweightmode} {reweightID} {oldgrids}"
+    jobname = f"pjj13T_{powheg_input}"
     return submit_range(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, {"first": 0, "last": njobs-1}, "{}:00:00".format(hours), "{}G".format(mem))
 
 def submit_check_job(cluster: str, workdirbase: str, powheg_version: str, partition: str,  mem: int = 2, hours: int = 4, dependency: int = -1) -> int:
     powheg_version_string = powheg_version
     if "VO_ALICE@POWHEG::" in powheg_version_string:
         powheg_version_string = powheg_version_string.replace("VO_ALICE@POWHEG::", "")
-    workdir = os.path.join(workdirbase, "POWHEG_{}".format(powheg_version_string)) 
+    workdir = os.path.join(workdirbase, f"POWHEG_{powheg_version_string}") 
     runcmd = f"{repo}/run_check_pwgevents_single.sh {repo} {workdir}"
     logdir = os.path.join(workdir, "logs")
     if not os.path.exists(logdir):
@@ -43,7 +44,7 @@ def submit_check_summary(cluster: str, workdirbase: str, powheg_version: str, pa
     powheg_version_string = powheg_version
     if "VO_ALICE@POWHEG::" in powheg_version_string:
         powheg_version_string = powheg_version_string.replace("VO_ALICE@POWHEG::", "")
-    workdir = os.path.join(workdirbase, "POWHEG_{}".format(powheg_version_string)) 
+    workdir = os.path.join(workdirbase, f"POWHEG_{powheg_version_string}") 
     runcmd = f"{repo}/run_checksummay_pwgevents.sh {repo} {workdir}"
     logdir = os.path.join(workdir, "logs")
     if not os.path.exists(logdir):
@@ -83,10 +84,10 @@ if __name__ == "__main__":
     pwgevents = find_pwgevents(args.workdir)
     if len(pwgevents):
         if not args.reweight:
-            print("Working directory not empty, output would be overwritten")
+            logging.error("Working directory not empty, output would be overwritten")
             sys.exit(1)
     elif args.reweight:
-        print("Reweighting mode requested on input directory without POWHEG input")
+        logging.error("Reweighting mode requested on input directory without POWHEG input")
         sys.exit(1)
 
     releases = []

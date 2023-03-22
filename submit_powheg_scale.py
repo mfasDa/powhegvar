@@ -16,7 +16,7 @@ def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: st
     logdir = os.path.join(workdir, "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
-    logfile = os.path.join(logdir, f"joboutput_scale_%a.log")
+    logfile = os.path.join(logdir, "joboutput_scale_%a.log")
     executable = os.path.join(repo, "powheg_steer_scale.sh")
     runcmd = f"{executable} {cluster} {repo} {workdir} {powheg_version} {powheg_input} {minslot}"
     jobname = f"scalevar_{powheg_version}"
