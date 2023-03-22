@@ -4,6 +4,7 @@ import os
 import argparse
 import logging
 import sys
+from helpers.checkjob import submit_checks
 from helpers.cluster import get_cluster, get_default_partition
 from helpers.setup_logging import setup_logging
 from helpers.slurm import submit
@@ -21,24 +22,6 @@ def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: st
     runcmd = f"{executable} {cluster} {repo} {workdir} {powheg_version} {powheg_input} {minpdf} {maxpdf} {minid} {minslot}"
     jobname = f"pdfvar_{powheg_version}"
     return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, njobs, f"{hours}:00:00", f"{mem}G", dependency=dependency)
-
-def submit_check_job(cluster: str, workdir: str, partition: str,  mem: int = 2, hours: int = 4, dependency: int = -1) -> int:
-    runcmd = f"{repo}/run_check_pwgevents_single.sh {repo} {workdir}"
-    logdir = os.path.join(workdir, "logs")
-    if not os.path.exists(logdir):
-        os.makedirs(logdir, 0o755)
-    logfile = os.path.join(logdir, "joboutput_check.log")
-    jobname = "check_pwgevents"
-    return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, 0, f"{hours}:00:00", f"{mem}G", dependency)
-
-def submit_check_summary(cluster: str, workdir: str, partition: str,  mem: int = 2, hours: int = 4, dependency: int = -1) -> int:
-    runcmd = f"{repo}/run_checksummay_pwgevents.sh {repo} {workdir}"
-    logdir = os.path.join(workdir, "logs")
-    if not os.path.exists(logdir):
-        os.makedirs(logdir, 0o755)
-    logfile = os.path.join(logdir, "joboutput_checksummary.log")
-    jobname = "checksummary_pwgevents"
-    return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, 0, f"{hours}:00:00", f"{mem}G", dependency)
 
 def find_index_of_input_file_range(workdir: str) -> int:
     pwgdirs = sorted([int(x) for x in os.listdir(workdir) if os.path.isfile(os.path.join(workdir, x, "pwgevents.lhe"))])
@@ -92,6 +75,4 @@ if __name__ == "__main__":
 
     # submit checking job
     # must run as extra job, not guarenteed that the production job finished
-    checkjob = submit_check_job(cluster, args.workdir, args.partition, 2, 4, pwhgjob)
-    logging.info("Job ID for automatic checking: %d", checkjob)
-    checksummaryjob = submit_check_summary(cluster, args.workdir, args.partition, 2, 1, checkjob)
+    submit_checks(cluster, repo, args.workdir, args.partition, pwhgjob)
