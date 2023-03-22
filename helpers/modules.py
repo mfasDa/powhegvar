@@ -4,4 +4,6 @@ import os
 def find_powheg_releases() -> list:
     simpath = "/nfs/data/alice-dev/mfasel_alice/simsoft/"
     files = [x for x in os.listdir(os.path.join(simpath, "Modules", "POWHEG"))]
+    # Allow to run as well with POWHEG from alidist
+    files.append("FromALICE")
     return files
