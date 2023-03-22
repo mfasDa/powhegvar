@@ -7,7 +7,7 @@ import sys
 from helpers.cluster import get_cluster, get_default_partition
 from helpers.datahandler import find_pwgevents
 from helpers.setup_logging import setup_logging
-from helpers.slurm import submit_range
+from helpers.slurm import submit, submit_range
 from helpers.modules import find_powheg_releases
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -26,6 +26,32 @@ def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: st
     jobname = "pjj13T_{}".format(powheg_version)
     return submit_range(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, {"first": 0, "last": njobs-1}, "{}:00:00".format(hours), "{}G".format(mem))
 
+def submit_check_job(cluster: str, workdirbase: str, powheg_version: str, partition: str,  mem: int = 2, hours: int = 4, dependency: int = -1) -> int:
+    powheg_version_string = powheg_version
+    if "VO_ALICE@POWHEG::" in powheg_version_string:
+        powheg_version_string = powheg_version_string.replace("VO_ALICE@POWHEG::", "")
+    workdir = os.path.join(workdirbase, "POWHEG_{}".format(powheg_version_string)) 
+    runcmd = f"{repo}/run_check_pwgevents_single.sh {repo} {workdir}"
+    logdir = os.path.join(workdir, "logs")
+    if not os.path.exists(logdir):
+        os.makedirs(logdir, 0o755)
+    logfile = os.path.join(logdir, "joboutput_check.log")
+    jobname = "check_pwgevents"
+    return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, 0, f"{hours}:00:00", f"{mem}G", dependency)
+
+def submit_check_summary(cluster: str, workdirbase: str, powheg_version: str, partition: str,  mem: int = 2, hours: int = 1, dependency: int = -1):
+    powheg_version_string = powheg_version
+    if "VO_ALICE@POWHEG::" in powheg_version_string:
+        powheg_version_string = powheg_version_string.replace("VO_ALICE@POWHEG::", "")
+    workdir = os.path.join(workdirbase, "POWHEG_{}".format(powheg_version_string)) 
+    runcmd = f"{repo}/run_checksummay_pwgevents.sh {repo} {workdir}"
+    logdir = os.path.join(workdir, "logs")
+    if not os.path.exists(logdir):
+        os.makedirs(logdir, 0o755)
+    logfile = os.path.join(logdir, "joboutput_checksummary.log")
+    jobname = "checksummary_pwgevents"
+    return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, 0, f"{hours}:00:00", f"{mem}G", dependency)
+    pass
 
 def prepare_outputlocation(outputlocation: str):
     if not os.path.exists(outputlocation):
@@ -76,4 +102,10 @@ if __name__ == "__main__":
     for pwhg in releases:
         pwhgjob = submit_job(cluster, args.workdir, pwhg, args.input, args.partition, args.njobs, args.minslot, args.mem, args.hours, oldgrids=args.grids)
         logging.info("Job ID for POWHEG %s: %d", pwhg, pwhgjob)
+
+        # submit checking job
+        # must run as extra job, not guarenteed that the production job finished
+        checkjob = submit_check_job(cluster, args.workdir, pwhg, args.partition, 2, 4, pwhgjob)
+        logging.info("Job ID for automatic checking: %d", checkjob)
+        checksummaryjob = submit_check_summary(cluster, args.workdir, pwhg, args.partition, 2, 1, checkjob)
 	
