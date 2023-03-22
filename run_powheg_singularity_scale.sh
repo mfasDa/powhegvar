@@ -131,4 +131,4 @@ done
 duration=$SECONDS
 ENDSTRING=$(date "+%d.%m.%Y %H:%M:%S")
 echo "Job ends: $ENDSTRING" 
-echo "Job took $(($duration / 3600)) hours, $(($duration % 3600)) minutes and $(($duration % 60)) seconds ."
+echo "Job took $(($duration / 3600)) hours, $((($duration / 60) % 3600)) minutes and $(($duration % 60)) seconds ."
