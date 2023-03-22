@@ -58,7 +58,7 @@ max_io_bufsize 100000000
 
 ! OPTIONAL PARAMETERS
 
-withnegweights 0     ! (default 0). If 1 use negative weights.
+withnegweights 1     ! (default 0). If 1 use negative weights.
 #bornonly 1          ! (default 0). If 1 compute underlying Born using LO
                      ! cross section only.
 
