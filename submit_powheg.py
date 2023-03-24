@@ -6,10 +6,11 @@ import logging
 import sys
 from helpers.checkjob import submit_checks
 from helpers.cluster import get_cluster, get_default_partition
+from helpers.containerwrapper import create_containerwrapper
 from helpers.datahandler import find_pwgevents
 from helpers.setup_logging import setup_logging
-from helpers.slurm import submit, submit_range
-from helpers.modules import find_powheg_releases
+from helpers.slurm import submit_range
+from helpers.modules import find_powheg_releases, get_OSVersion
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -18,13 +19,17 @@ def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: st
     powheg_version_string = powheg_version
     if "VO_ALICE@POWHEG::" in powheg_version_string:
         powheg_version_string = powheg_version_string.replace("VO_ALICE@POWHEG::", "")
-    logdir = os.path.join(workdir, f"POWHEG_{powheg_version_string}", "logs")
+    workdir= os.path.join(workdir, f"POWHEG_{powheg_version_string}")
+    logdir = os.path.join(workdir, "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
     logfile = os.path.join(logdir, "joboutput%a.log")
-    executable = os.path.join(repo, "powheg_steer.sh")
+    executable = os.path.join(repo, "run_powheg_singularity.sh")
     runcmd = f"{executable} {cluster} {repo} {workdir} {powheg_version} {powheg_input} {minslot} {oldgrids}"
     jobname = f"pjj13T_{powheg_input}"
+    if cluster == "CADES" or cluster == "CORI":
+        runcmd = create_containerwrapper(runcmd, workdir, cluster, get_OSVersion(cluster, powheg_version))
+    logging.debug("Running on hosts: %s", runcmd)
     return submit_range(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, {"first": 0, "last": njobs-1}, "{}:00:00".format(hours), "{}G".format(mem))
 
 def build_workdir_for_pwhg(workdir: str, powheg_version: str) -> str:
