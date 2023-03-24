@@ -42,18 +42,24 @@ class MultiStageJob:
         self.__slots = slots
         self.__config = config
         self.__jobid = -1
+        self.__originalInput = ""
+        self.__nextsubmitter = -1
 
     def build_stage(self, pwginput: str, nevents: int):
         if not os.path.exists(self.__workdir):
             os.makedirs(self.__workdir, 0o755)
         build_powheg_stage(pwginput, self.__workdir, self.__stage, self.__xgriditer, self.__slots, nevents)
         build_powhegseeds(self.__workdir, self.__slots)
+        self.__originalInput = pwginput
 
     def get_jobid(self) -> int:
         return self.__jobid
 
+    def get_jobid_nextstage(self) ->int:
+        return self.__nextsubmitter
+
     def __build_command(self, powheg_version: str)-> str:
-        return "{EXE} {CLUST} {REPO} {WD} {VERSION} {STAGE} {ITER}".format(EXE=self.__executable, CLUST=self.__config.cluster(), REPO=repo, WD=self.__workdir, VERSION=powheg_version, STAGE=self.__stage, ITER=self.__xgriditer)
+        return f"{self.__executable} {self.__config.cluster()} {repo} {self.__workdir} {powheg_version} {self.__stage} {self.__xgriditer}"
 
     def submit(self, powheg_version):
         jobname = "pwg_st{}".format(self.__stage)
@@ -67,6 +73,38 @@ class MultiStageJob:
             os.makedirs(logdir, 0o755)
         logfile = os.path.join(logdir, logfilebase)
         self.__jobid = submit(self.__build_command(powheg_version), self.__config.cluster(), jobname, logfile, self.__config.queue(), self.__slots, self.__config.timelimit(), self.__config.memory())
+    
+    def submit_next(self, powheg_version):
+        if self.__stage == 3:
+            logging.info("Already at the last stage, no more stages to submit")
+            return
+        nextstage = 1
+        nextiter = 2
+        if self.__stage == 1:
+            if self.__xgriditer == 1:
+                nextiter = griditer = 2
+            else:
+                nextstage = 2
+                nextiter = 1
+        elif self.__stage == 2:
+            nextstage = 3
+        logfilename = f"submit_stage{nextstage}"
+        jobname = f"submit_stage{nextstage}"
+        # remove powheg version from workdir
+        stripped_workdir = self.__workdir
+        stripped_workdir = stripped_workdir.replace(f"POWHEG_{powheg_version}", "")
+        stripped_workdir = stripped_workdir.rstrip("/")
+        runcmd = f"{repo}/stagewrapper.sh {repo}/submit_powheg_stage.py {stripped_workdir} --repo {repo} -i {self.__originalInput} -n {self.__slots} -v {powheg_version} -p {self.__config.queue()} -s {nextstage}"
+        if nextstage == 1:
+            runcmd = f"{runcmd} -x {nextiter}"
+            jobname = f"{jobname}_xgrid{nextiter}"
+            logfilename = f"{logfilename}_xgrid{nextiter}"
+        logfilename = f"{logfilename}.log"
+        memory_int = self.__config.memory().split("G")[0]
+        hours = self.__config.timelimit().split(":")[0]
+        runcmd = f"{runcmd} --mem {memory_int} --hours {hours} -c"
+        logfile = os.path.join(self.__workdir, "logs", logfilename)
+        self.__nextsubmitter = submit(runcmd, self.__config.cluster(), jobname, logfile, self.__config.queue(), 0, "00:30:00", "2G", self.__jobid)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("submit_powheg_stage.py", description="Submitter for multi-stage POWHEG")
@@ -82,8 +120,14 @@ if __name__ == "__main__":
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
+    parser.add_argument("-c", "--continuestage", action="store_true", help="automatically submit next stage")
+    parser.add_argument("--repo", metavar="REPO", type=str, default="", help="Repository")
     args = parser.parse_args()
     setup_logging(args.debug)
+
+    if len(args.repo):
+        # Mainly needed for automatic submission of higher stages
+        repo = args.repo
 
     if args.stage > 4:
         logging.error("Max. 4 stages")
@@ -107,3 +151,8 @@ if __name__ == "__main__":
     job.build_stage(args.input, args.events)
     job.submit(args.version)
     logging.info("Submitted stage job under ID %d", job.get_jobid())
+    if args.continuestage:
+        job.submit_next(args.version)
+        submitter_next = job.get_jobid_nextstage()
+        if submitter_next > -1:
+            logging.info("Launched sumbitter for next stage/xgrid under ID %d", submitter_next)

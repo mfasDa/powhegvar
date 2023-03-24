@@ -3,7 +3,7 @@
 import logging
 import subprocess
 
-def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1) -> str:
+def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1, environment: str = "") -> str:
     logging.info("Using logfile: %s", logfile)
     submitcmd = "sbatch "
     if cluster == "CADES":
@@ -20,6 +20,8 @@ def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str
         submitcmd += " --mem={}".format(memory)
     if dependency > -1:
         submitcmd += " -d {}".format(dependency)
+    if len(environment):
+        submitcmd += "export={}".format(environment)
     if cluster == "CORI":
         submitcmd += " --constraint=haswell"
         submitcmd += " --licenses=cvmfs,cfs"
@@ -27,7 +29,7 @@ def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str
     return submitcmd
 
 
-def submit(command: str, cluster: str, jobname: str, logfile: str, partition: str, arraysize: int = 0, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1) -> int:
+def submit(command: str, cluster: str, jobname: str, logfile: str, partition: str, arraysize: int = 0, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1, envrionment: str = "") -> int:
     submitcmd = ncorejob(cluster, 1, jobname, logfile, partition, timelimit, memory, dependency)
     if arraysize > 0:
         submitcmd += " --array=0-{}".format(arraysize-1)
@@ -39,7 +41,7 @@ def submit(command: str, cluster: str, jobname: str, logfile: str, partition: st
     jobid = int(toks[len(toks)-1])
     return jobid
 
-def submit_range(command: str, cluster: str, jobname: str, logfile: str, partition: str, arrayrange: dict, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1) -> int:
+def submit_range(command: str, cluster: str, jobname: str, logfile: str, partition: str, arrayrange: dict, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1, nevironment: str = "") -> int:
     submitcmd = ncorejob(cluster, 1, jobname, logfile, partition, timelimit, memory, dependency)
     submitcmd += " --array={}-{}".format(arrayrange["first"], arrayrange["last"])
     submitcmd += " {}".format(command)
