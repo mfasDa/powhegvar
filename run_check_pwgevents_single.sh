@@ -3,7 +3,7 @@
 SOURCEDIR=$1
 WORKDIR=$2
 
-SLOTS=($(ls -1 | grep -E "[0-9]+"))
+SLOTS=($(ls -1 $WORKDIR | grep -E "[0-9]+"))
 
 for SLOTDIR in ${SLOTS[@]}; do
     echo "Processing slot directory: $SLOTDIR in working directory $WORKDIR"

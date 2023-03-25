@@ -4,6 +4,7 @@ import os
 import logging
 from helpers.cluster import get_default_partition
 from helpers.slurm import submit 
+from helpers.workdir import range_jobdirs
 
 def submit_check_job(cluster: str, repo: str, workdir: str, partition: str,  mem: int = 2, hours: int = 4, dependency: int = -1) -> int:
     runcmd = f"{repo}/run_check_pwgevents_single.sh {repo} {workdir}"
@@ -14,6 +15,25 @@ def submit_check_job(cluster: str, repo: str, workdir: str, partition: str,  mem
     jobname = "check_pwgevents"
     return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, 0, f"{hours}:00:00", f"{mem}G", dependency)
 
+def submit_multi_checkjob(cluster: str, repo: str, workdir: str, partition: str, njobs: int, minslot: int = 0, mem: int = 2, hours: int = 1, dependency: int = -1) -> int:
+    runcmd = f"{repo}/run_check_pwgevents.sh {repo} {workdir} {minslot}"
+    logdir = os.path.join(workdir, "logs")
+    if not os.path.exists(logdir):
+        os.makedirs(logdir, 0o755)
+    logfile = os.path.join(logdir, "joboutput_check_%a.log")
+    jobname = "check_pwgevents"
+    return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, njobs, f"{hours}:00:00", f"{mem}G", dependency)
+
+def submit_check_jobs(cluster: str, repo: str, workdir: str, partition: str, mem: int = 2, hours: int =1, dependency: int = -1) -> int:
+    indexmin, indexmax = range_jobdirs(workdir)
+    logging.debug(f"Min. index: {indexmin}, max index: {indexmax}")
+    if indexmin == -1 or indexmax == -1:
+        logging.error("Didn't find slot dirs in %s", workdir)
+        return
+    minslot = indexmin
+    njobs = indexmax - indexmin + 1
+    return submit_multi_checkjob(cluster, repo, workdir, partition, njobs, minslot, mem, hours, dependency)
+
 def submit_check_summary(cluster: str, repo: str, workdir: str, partition: str,  mem: int = 2, hours: int = 4, dependency: int = -1) -> int:
     runcmd = f"{repo}/run_checksummay_pwgevents.sh {repo} {workdir}"
     logdir = os.path.join(workdir, "logs")
@@ -23,9 +43,13 @@ def submit_check_summary(cluster: str, repo: str, workdir: str, partition: str, 
     jobname = "checksummary_pwgevents"
     return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, 0, f"{hours}:00:00", f"{mem}G", dependency)
 
-def submit_checks(cluster: str, repo: str, workdir: str, partition: str, pwhgjob):
-    logging.info("Launching checking chain for workdir %s", workdir)
-    checkjob = submit_check_job(cluster, repo, workdir, partition, 2, 4, pwhgjob)
+def submit_checks(cluster: str, repo: str, workdir: str, partition: str, pwhgjob, multi: bool = False):
+    logging.info("Launching checking chain for workdir %s (%s-job mode)", workdir, "multi" if multi else "single")
+    checkjob = -1
+    if multi:
+        checkjob = submit_check_jobs(cluster, repo, workdir, partition, 2, 4, pwhgjob)
+    else:
+        checkjob = submit_check_job(cluster, repo, workdir, partition, 2, 4, pwhgjob)
     logging.info("Job ID for automatic checking: %d", checkjob)
     checksummaryjob = submit_check_summary(cluster, repo, workdir, partition, 2, 1, checkjob)
     logging.info("Job ID for analysing checking results: %d", checksummaryjob)
