@@ -182,7 +182,34 @@ class POWHEG_runner:
         return False
 
     def __get_gridfiles(self):
-        return ["FlavRegList", "bornequiv", "pwhg_checklimits", "realequiv", "realequivregions", "virtequiv"]
+        return ["pwggrid.dat", "pwgubound.dat", "pwgxgrid.dat"]
+
+    def __find_gridfiles_parallelstage(self):
+        filter = lambda x: x.startswith("pwggrid-") or x.startswith("pwgubound-") or x.startswith("pwggridinfo-btl-xg")
+        return [x for x in os.listdir(self.__gridrepository) if filter(x)]
+
+    def __check_gridfile_parallel(self):
+        if not os.path.exists(self.__gridrepository):
+            return False
+        files_repository = self.__find_gridfiles_parallelstage()
+        logging.info("found %d gridfiles parallel stage", len(files_repository))
+        grids = [x for x in files_repository if x.startswith("pwggrid-")]
+        ubounds = [x for x in files_repository if x.startswith("pwgubound-")]
+        gridinfos = [x for x in files_repository if x.startswith("pwggridinfo-btl-xg")]
+        if len(grids) > 0 and len(ubounds) > 0 and len(gridinfos) > 0:
+            if len(grids) == len(ubounds):
+                if len(gridinfos) % len(grids) == 0:
+                    logging.info("Found PWG grids from parallel stage: %d grid, %d ubounds and %d gridinfos", len(grids), len(ubounds), len(gridinfos))
+                    return True
+                else:
+                    logging.error("Number of gridinfos not multiple of number of grids (%d gridinfos, %d grids)", len(gridinfos), len(grids))
+                    return False
+            else:
+                logging.error("Inconsistent grid files from parallel stage: %d grids, %d ubounds, %d gridinfos", len(grids), len(ubounds), len(gridinfos))
+                return False
+        else:
+            logging.debug("Either one or several grid files missing")
+            return False
 
     def __check_gridfiles(self) -> bool:
         if not os.path.exists(self.__gridrepository):
@@ -201,11 +228,32 @@ class POWHEG_runner:
             return False
         return True
 
-    def __fetch_oldgrids(self):
+    def __fetch_oldgrids(self, parallel_mode: bool):
         if not os.path.exists(self.__gridrepository):
             logging.error("Repository with grids not existing")
             return
-        gridfiles = self.__get_gridfiles() 
+        gridfiles = []
+        if parallel_mode:
+            files_repository = self.__find_gridfiles_parallelstage()
+            grids = [x for x in files_repository if x.startswith("pwggrid-")]
+            ubounds = [x for x in files_repository if x.startswith("pwgubound-")]
+            gridinfos = [x for x in files_repository if x.startswith("pwggridinfo-btl-xg")]
+            # select all grids and ubounds
+            for fl in grids:
+                gridfiles.append(fl)
+            for fl in ubounds:
+                gridfiles.append(fl)
+            # select files from the largest xgrid iteration
+            lastiteration = -1
+            for info in gridinfos:
+                xgiter = info.split("-")[2]
+                xgiterval = int(xgiter.replace("xg",""))
+                if xgiterval > lastiteration:
+                    lastiteration = xgiter
+            for fl in [x for x in gridinfos if f"xg{lastiteration}" in x]:
+                gridfiles.append(fl)
+        else:
+            gridfiles = self.__get_gridfiles()
         for fl in gridfiles:
             self.__copy_to_workdir(os.path.join(self.__gridrepository, fl), fl)
 
@@ -277,10 +325,15 @@ class POWHEG_runner:
                 return
             self.__copy_to_workdir(self.__pwginput, "powheg.input")
         if self.is_useexistinggrids():
-            if not self.__check_gridfiles():
-                logging.error("Request running with existing grids, but not all expected files found, cannot run ...")
-                return
-            self.__fetch_oldgrids()
+            parallelmode = False
+            if not self.__check_gridfile_parallel():
+                if not self.__check_gridfiles():
+                    logging.error("Request running with existing grids, but not all expected files found, cannot run ...")
+                    return
+            else:
+                parallelmode = True
+            logging.info("Found grid files in %s (%s mode)", self.__gridrepository) 
+            self.__fetch_oldgrids(parallelmode)
         self.__workdirInitialized = True
         
 if __name__ == "__main__":
