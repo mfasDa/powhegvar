@@ -248,7 +248,8 @@ class POWHEG_runner:
                 xgiter = info.split("-")[2]
                 xgiterval = int(xgiter.replace("xg",""))
                 if xgiterval > lastiteration:
-                    lastiteration = xgiter
+                    lastiteration = xgiterval
+            logging.info("Last xgrid iteration: %d", lastiteration)
             for fl in [x for x in gridinfos if f"xg{lastiteration}" in x]:
                 gridfiles.append(fl)
         else:
