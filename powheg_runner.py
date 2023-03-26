@@ -10,8 +10,7 @@ import sys
 import time
 
 from helpers.setup_logging import setup_logging
-from prepare_pdfreweight import process_input as create_config_pdfreweight
-from prepare_scalereweight import process_input as create_config_scalereweight
+from helpers.reweighting import create_config_pdfreweight, create_config_scalereweight
 
 class POWHEG_runner:
 
@@ -332,7 +331,7 @@ class POWHEG_runner:
                     return
             else:
                 parallelmode = True
-            logging.info("Found grid files in %s (%s mode)", self.__gridrepository) 
+            logging.info("Found grid files in %s (%s mode)", self.__gridrepository, "parallel" if parallelmode else "sequential") 
             self.__fetch_oldgrids(parallelmode)
         self.__workdirInitialized = True
         
@@ -381,10 +380,10 @@ if __name__ == "__main__":
         logging.error("Error during initialization of the POWHEG processor, cannot run the simulation ...")
         sys.exit(3)
     else:
-        starttime = time.process_time()
+        starttime = time.time()
         logging.info("POWHEG processor initialized, running the simulation")
         if processor.run():
-            endtime = time.process_time()
+            endtime = time.time()
             elapsed_seconds = endtime - starttime
             hours = elapsed_seconds / 3600
             minutes = (elapsed_seconds / 60) % 60
