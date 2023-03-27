@@ -3,6 +3,83 @@
 import logging
 import subprocess
 
+class SlurmConfig:
+
+    def __init__(self):
+        self.__cluster = ""
+        self.__partition = ""
+        self.__jobame = ""
+        self.__logfile = ""
+        self.__environment = ""
+        self.__njobs = 1
+        self.__dependency = -1
+        self.__hours = 10
+        self.__memory = 4
+
+    def set_cluster(self, cluster: str):
+        self.__cluster = cluster
+
+    def set_partition(self, partition: str):
+        self.__partition = partition
+
+    def set_jobname(self, jobname: str):
+        self.__jobame = jobname
+
+    def set_logfile(self, logfile: str):
+        self.__logfile = logfile
+
+    def set_environment(self, environment: str):
+        self.__environment = environment
+
+    def set_njobs(self, njobs: int):
+        self.__njobs = njobs
+
+    def set_dependency(self, dependency: int):
+        self.__dependency = dependency
+
+    def set_hours(self, hours: int):
+        self.__hours = hours
+
+    def set_memory(self, memory: int):
+        self.__memory = memory
+
+    def get_cluster(self) -> str:
+        return self.__cluster
+
+    def get_partition(self) -> str:
+        return self.__partition
+
+    def get_jobame(self) -> str:
+        return self.__jobame
+
+    def get_logfile(self) -> str:
+        return self.__logfile
+
+    def get_environment(self) -> str:
+        return self.__environment 
+
+    def get_njobs(self) -> int:
+        return self.__njobs
+
+    def get_dependency(self) -> int:
+        return self.__dependency
+
+    def get_hours(self) -> int:
+        return self.__hours
+
+    def get_memory(self) -> int:
+        return self.__memory
+    
+    cluster = property(fget=get_cluster, fset=set_cluster)
+    partition = property(fget=get_partition, fset=set_partition)
+    jobname = property(fget=get_jobame, fset=set_jobname)
+    logfile = property(fget=get_logfile, fset=set_logfile)
+    environment = property(fget=get_environment, fset=set_environment)
+    dependency = property(fget=get_dependency, fset=set_dependency)
+    njobs = property(fget=get_njobs, fset=set_njobs)
+    hours = property(fget=get_hours, fset=set_hours)
+    memory = property(fget=get_memory, fset=set_memory)
+
 def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1, environment: str = "") -> str:
     logging.info("Using logfile: %s", logfile)
     submitcmd = "sbatch "

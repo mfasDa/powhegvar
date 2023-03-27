@@ -8,30 +8,30 @@ from helpers.checkjob import submit_checks
 from helpers.cluster import get_cluster, get_default_partition
 from helpers.containerwrapper import create_containerwrapper
 from helpers.setup_logging import setup_logging
-from helpers.slurm import submit
+from helpers.simconfig import SimConfig
+from helpers.slurm import submit, SlurmConfig
 from helpers.modules import find_powheg_releases, get_OSVersion
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-def submit_job(cluster: str, workdir: str, powheg_version: str, powheg_input: str, partition: str, njobs: int, minslot: int = 0, mem: int = 4, hours: int = 10, dependency: int = 0) -> int:
-    print(f"Submitting POWHEG release {powheg_version}")
-    logdir = os.path.join(workdir, "logs")
+def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig) -> int:
+    logging.info("Submitting POWHEG release %s", simconfig.powhegversion)
+    logdir = os.path.join(simconfig.workdir, "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
     logfile = os.path.join(logdir, "joboutput_scale_%a.log")
     executable = os.path.join(repo, "run_powheg_singularity_scale.sh")
-    runcmd = f"{executable} {cluster} {repo} {workdir} {powheg_version} {powheg_input} {minslot}"
-    jobname = f"scalevar_{powheg_version}"
-    if cluster == "CADES" or cluster == "CORI":
-        runcmd = create_containerwrapper(runcmd, workdir, cluster, get_OSVersion(cluster, powheg_version))
-    return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, njobs, f"{hours}:00:00", f"{mem}G", dependency=dependency)
+    runcmd = f"{executable} {batchconfig.cluster} {repo} {simconfig.workdir} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot}"
+    jobname = f"scalevar_{simconfig.powhegversion}"
+    if batchconfig.cluster == "CADES" or batchconfig.cluster == "CORI":
+        runcmd = create_containerwrapper(runcmd, simconfig.workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion))
+    return submit(runcmd, batchconfig.cluster, jobname, logfile, get_default_partition(batchconfig.cluster) if batchconfig.partition == "default" else partition, njobs, f"{batchconfig.hours}:00:00", f"{batchconfig.memory}G", dependency=batchconfig.dependency)
 
 def find_index_of_input_file_range(workdir: str) -> int:
     pwgdirs = sorted([int(x) for x in os.listdir(workdir) if os.path.isfile(os.path.join(workdir, x, "pwgevents.lhe"))])
     if not len(pwgdirs):
         return (-1, -1)
     return (pwgdirs[0], pwgdirs[len(pwgdirs)-1]) 
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("submit_powheg.py", description="Submitter for powheg")
@@ -69,8 +69,24 @@ if __name__ == "__main__":
     else:
         if not "VO_ALICE" in request_release:
             request_release = "default"
-    print("Simulating with POWHEG: {}".format(args.version))
-    pwhgjob = submit_job(cluster, args.workdir, args.version, args.input, args.partition, njobs, minslot, args.mem, args.hours, args.dependency)
+
+    simconfig = SimConfig()
+    simconfig.workdir = args.workdir
+    simconfig.powheginput = args.input
+    simconfig.powhegversion = args.version
+    simconfig.scalereweight = True
+    simconfig.minslot = minslot
+
+    batchconfig = SlurmConfig()
+    batchconfig.cluster = cluster
+    batchconfig.partition = partition
+    batchconfig.njobs = njobs
+    batchconfig.dependency = args.dependency
+    batchconfig.hours = args.hours
+    batchconfig.memory = args.mem
+
+    logging.info("Simulating with POWHEG: %s", args.version)
+    pwhgjob = submit_job(simconfig, batchconfig)
     logging.info("Job ID: %d", pwhgjob)
 
     # submit checking job

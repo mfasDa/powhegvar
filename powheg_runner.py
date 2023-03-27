@@ -11,6 +11,7 @@ import time
 
 from helpers.setup_logging import setup_logging
 from helpers.reweighting import create_config_pdfreweight, create_config_scalereweight
+from helpers.events import create_config_nevens
 
 class POWHEG_runner:
 
@@ -23,6 +24,7 @@ class POWHEG_runner:
         self.__minpdf = -1
         self.__maxpdf = -1
         self.__minid = -1
+        self.__events = -1
         self.__workdirInitialized = False
         self.__powhegtype = ""
 
@@ -31,6 +33,9 @@ class POWHEG_runner:
         
     def set_pwginput(self, pwginput: str):
         self.__pwginput = pwginput
+    
+    def set_events(self, events: int):
+        self.__events = events
 
     def set_scalereweight(self, minID: int):
         self.__reweightscale = True
@@ -63,6 +68,9 @@ class POWHEG_runner:
     def get_powhegtype(self) -> bool:
         return self.__powhegtype
 
+    def get_events(self) -> int:
+        return self.__events
+
     def is_scalereweight(self) -> bool:
         return self.__reweightscale 
 
@@ -90,6 +98,7 @@ class POWHEG_runner:
     pwginput = property(fget=get_pwginput, fset=set_pwginput)
     workdir = property(fget=get_workdir, fset=set_workdir)
     gridrepository = property(fget=get_gridrepository, fset=set_gridrepository)
+    events = property(fget=get_events, fset=set_events)
 
     def init(self) -> bool:
         self.__prepare_workdir()
@@ -101,6 +110,7 @@ class POWHEG_runner:
             return False
         if not self.__workdirInitialized:
             logging.error("Working directory not properly initialized, cannot run")
+        logging.info("Workdir %s properly initialized, ready for running POWHEG job ...", self.__workdir)
         if not self.is_reweight():
             if self.__workdir_has_pwgevents():
                 logging.error("pwgevents.lhe already found in working directory %s for non-reweight jon - cannot run ...")
@@ -115,12 +125,14 @@ class POWHEG_runner:
         return True
 
     def __run_scalereweight(self):
+        os.chdir(self.__workdir)
         currentid = self.__minid
         variations = [0.5, 1., 2.]
         for indexMuR in range(0, 3):
             variationMuR = variations[indexMuR]
             for indexMuF in range(0, 3):
                 variationMuF = variations[indexMuF]
+                self.__list_workdir()
                 if self.__workdir_has_reweightevents():
                     logging.error("pwgevents-reweight.lhe found in workdir %s in weighting mode, cannot run ...")
                     return
@@ -138,11 +150,13 @@ class POWHEG_runner:
                 currentid += 1
 
     def __run_pdfreweight(self):
+        os.chdir(self.__workdir)
         currentid = self.__minid
         currentpdf = self.__minpdf
         while currentpdf <= self.__maxpdf:
+            self.__list_workdir()
             if self.__workdir_has_reweightevents():
-                logging.error("pwgevents-reweight.lhe found in workdir %s in weighting mode, cannot run ...")
+                logging.error("pwgevents-reweight.lhe found in workdir %s in weighting mode, cannot run ...", self.__workdir)
                 return
             logging.info("Running pdf variation %d with weight ID %d", currentpdf, currentid)
             create_config_pdfreweight(self.__pwginput, os.path.join(self.__workdir, "powheg.input"), currentpdf, currentid)
@@ -323,7 +337,12 @@ class POWHEG_runner:
             if len(os.listdir(self.__workdir)):
                 logging.error("Found non-empty working directory in non-reweight mode, cannot run ...")
                 return
-            self.__copy_to_workdir(self.__pwginput, "powheg.input")
+            if self.__events > 0:
+                # Need to create a new configuration setting the number of events 
+                create_config_nevens(self.__pwginput, os.path.join(self.__workdir, "powheg.input"), self.__events)
+            else:
+                # Use existing configuration with the default number of events
+                self.__copy_to_workdir(self.__pwginput, "powheg.input")
         if self.is_useexistinggrids():
             parallelmode = False
             if not self.__check_gridfile_parallel():
@@ -340,6 +359,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("powheg_runner.py", description="Frontent for POWHEG calculations")
     parser.add_argument("workdir", metavar="WORKDIR", type=str, help="Processing directory")
     parser.add_argument("input", metavar="POWHEGINPUT", type=str, help="Full path of powheg input file")
+    parser.add_argument("-e", "--events", metavar="EVENTS", type=int, default=0, help="Number of events")
     parser.add_argument("-t", "--type", metavar="POWHEGTYPE", type=str, default="dijet", help="POWHEG type, can be dijet, directphoton, hvq, W or Z (default: dijet)")
     parser.add_argument("-g", "--gridfiledir", metavar="GRIDFILEDIR", type=str, default="", help="Location of gridfile (in case of running with existing grids)")
     parser.add_argument("--minpdf", metavar="MINPDF", type=int, default=-1, help="Min. pdf (in case of PDF reweighting mode)")
@@ -377,6 +397,8 @@ if __name__ == "__main__":
         processor.set_pdfreweight(args.minpdf, args.maxpdf, args.minid)
     if len(args.gridfiledir):
         processor.set_gridrepository(os.path.abspath(args.gridfiledir))
+    if args.events > 0:
+        processor.set_events(args.events)
     if not processor.init():
         logging.error("Error during initialization of the POWHEG processor, cannot run the simulation ...")
         sys.exit(3)
