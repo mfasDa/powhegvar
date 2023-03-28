@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+import logging
 
 def replace_value(input: str, newvalue: str):
     command = input
@@ -12,7 +13,7 @@ def replace_value(input: str, newvalue: str):
         if len(tok):
             stripped_tokens.append(tok)
     oldvalue = stripped_tokens[1]
-    print(f"Replaceing {oldvalue} with {newvalue}")
+    logging.debug("Replaceing %s with %s", oldvalue, newvalue)
     output = input.replace(oldvalue, newvalue)
-    print(f"New line: {output}")
+    logging.debug("New line: %s", output)
     return output

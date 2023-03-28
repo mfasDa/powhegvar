@@ -1,15 +1,17 @@
 #! /usr/bin/env python3
 
+import logging
+
 from helpers.powhegconfig import replace_value
 
 def create_config_pdfreweight(inputfile: str, outputfile: str, pdfset: int, weightID: int):
-    print("Parameters for reweighted POWHEG input:")
-    print("----------------------------------------------------------------------------------")
-    print(f"INPUT:        {inputfile}")
-    print(f"OUTPUT:       {outputfile}")
-    print(f"PDFSET:       {pdfset}")
-    print(f"ID:           {weightID}")
-    print("----------------------------------------------------------------------------------")
+    logging.info("Parameters for reweighted POWHEG input:")
+    logging.info("----------------------------------------------------------------------------------")
+    logging.info("INPUT:        %s", inputfile)
+    logging.info("OUTPUT:       %s", outputfile)
+    logging.info("PDFSET:       %s", pdfset)
+    logging.info("ID:           %s", weightID)
+    logging.info("----------------------------------------------------------------------------------")
     with open(inputfile, "r") as reader:
         with open(outputfile,  "w") as writer:
             weightidset = False
@@ -50,14 +52,14 @@ def create_config_pdfreweight(inputfile: str, outputfile: str, pdfset: int, weig
         reader.close()
 
 def create_config_scalereweight(inputfile: str, outputfile: str, muf: float, mur: float, weightID: int):
-    print("Parameters for reweighted POWHEG input:")
-    print("----------------------------------------------------------------------------------")
-    print(f"INPUT:        {inputfile}".format(inputfile))
-    print(f"OUTPUT:       {outputfile}")
-    print(f"MUF:          {muf:.1f}")
-    print(f"MUR:          {mur:.1f}")
-    print(f"ID:           {weightID}")
-    print("----------------------------------------------------------------------------------")
+    logging.info("Parameters for reweighted POWHEG input:")
+    logging.info("----------------------------------------------------------------------------------")
+    logging.info("INPUT:        %s", inputfile)
+    logging.info("OUTPUT:       %s", outputfile)
+    logging.info("MUF:          %.1f", muf)
+    logging.info("MUR:          %.1f", mur)
+    logging.info("ID:           %d", weightID)
+    logging.info("----------------------------------------------------------------------------------")
     with open(inputfile, "r") as reader:
         with open(outputfile,  "w") as writer:
             weightidset = False
