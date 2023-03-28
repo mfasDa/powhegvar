@@ -4,13 +4,14 @@ import os
 import argparse
 import logging
 import sys
-from helpers.checkjob import submit_checks
+from helpers.checkjob import submit_checks, submit_check_slot
 from helpers.cluster import get_cluster, get_default_partition
 from helpers.containerwrapper import create_containerwrapper
 from helpers.setup_logging import setup_logging
 from helpers.simconfig import SimConfig
 from helpers.slurm import submit, SlurmConfig
 from helpers.modules import find_powheg_releases, get_OSVersion
+from helpers.workdir import find_index_of_input_file_range
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -28,13 +29,6 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig):
         runcmd = create_containerwrapper(runcmd, simconfig.workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion))
     return submit(runcmd, batchconfig.cluster, jobname, logfile, get_default_partition(batchconfig.cluster) if batchconfig.partition == "default" else batchconfig.partition, batchconfig.njobs, f"{batchconfig.hours}:00:00", f"{batchconfig.memory}G", dependency=batchconfig.dependency)
 
-def find_index_of_input_file_range(workdir: str) -> int:
-    pwgdirs = sorted([int(x) for x in os.listdir(workdir) if os.path.isfile(os.path.join(workdir, x, "pwgevents.lhe"))])
-    if not len(pwgdirs):
-        return (-1, -1)
-    return (pwgdirs[0], pwgdirs[len(pwgdirs)-1]) 
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("submit_powheg.py", description="Submitter for powheg")
     parser.add_argument("workdir", metavar="WORKDIR", type=str, help="Working directory")
@@ -44,6 +38,7 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--input", metavar="POWHEGINPUT", type=str, default=os.path.join(repo, "powheginputs", "powheg_13TeV_CT14_default.input"), help="POWHEG input")
     parser.add_argument("-v", "--version", metavar="VERSION", type=str, default="r3898", help="POWEHG version")
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="Partition")
+    parser.add_argument("--slot", metavar="SLOT", type=int, default=-1, help="Process single slot (default: -1 := off)")
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
     parser.add_argument("--dependency", metavar="DEPENDENCY", type=int, default=-1, help="Dependency")
@@ -58,13 +53,21 @@ if __name__ == "__main__":
     if not os.path.exists(args.workdir):
         logging.error("Working directory %s doesn't exist", args.workdir)
         sys.exit(1)
-    indexmin, indexmax = find_index_of_input_file_range(args.workdir)
-    logging.debug(f"Min. index: {indexmin}, max index: {indexmax}")
-    if indexmin == -1 or indexmax == -1:
-        logging.error("Didn't find slot dirs with pwgevents.lhe in %s", args.workdir)
-        sys.exit(1)
-    minslot = indexmin
-    njobs = indexmax - indexmin + 1
+    minslot = 0
+    njobs = 0
+    if args.slot > -1:
+        logging.info("Single job submission for slot %d", args.slot)
+        minslot = args.slot 
+        njobs = 1
+    else:
+        logging.info("Parallel mode: find jobs to run scaling on")
+        indexmin, indexmax = find_index_of_input_file_range(args.workdir)
+        logging.debug(f"Min. index: {indexmin}, max index: {indexmax}")
+        if indexmin == -1 or indexmax == -1:
+            logging.error("Didn't find slot dirs with pwgevents.lhe in %s", args.workdir)
+            sys.exit(1)
+        minslot = indexmin
+        njobs = indexmax - indexmin + 1
     request_release = args.version
     if cluster == "CADES":
         releases_all = find_powheg_releases() if cluster == "CADES" else ["default"]
@@ -96,6 +99,12 @@ if __name__ == "__main__":
     pwhgjob = submit_job(simconfig, batchconfig)
     logging.info("Job ID: %d", pwhgjob)
 
-    # submit checking job
-    # must run as extra job, not guarenteed that the production job finished
-    submit_checks(cluster, repo, args.workdir, args.partition, pwhgjob)
+    if args.slot == -1:
+        # submit checking job
+        # must run as extra job, not guarenteed that the production job finished
+        # only in parallel mode
+        submit_checks(cluster, repo, args.workdir, args.partition, pwhgjob)
+    else:
+        # submit single checking job on missing slot
+        # slot mode
+        submit_check_slot(cluster, repo, args.workdir, args.slot, args.partition, pwhgjob)

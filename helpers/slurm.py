@@ -11,6 +11,7 @@ class SlurmConfig:
         self.__jobame = ""
         self.__logfile = ""
         self.__environment = ""
+        self.__cpus = 1
         self.__njobs = 1
         self.__dependency = -1
         self.__hours = 10
@@ -33,6 +34,9 @@ class SlurmConfig:
 
     def set_njobs(self, njobs: int):
         self.__njobs = njobs
+
+    def set_cpus(self, cpus: int):
+        self.__cpus = cpus
 
     def set_dependency(self, dependency: int):
         self.__dependency = dependency
@@ -61,6 +65,9 @@ class SlurmConfig:
     def get_njobs(self) -> int:
         return self.__njobs
 
+    def get_cpus(self) -> int:
+        return self.__cpus
+
     def get_dependency(self) -> int:
         return self.__dependency
 
@@ -77,8 +84,74 @@ class SlurmConfig:
     environment = property(fget=get_environment, fset=set_environment)
     dependency = property(fget=get_dependency, fset=set_dependency)
     njobs = property(fget=get_njobs, fset=set_njobs)
+    cpus = property(fget=get_cpus, fset=set_cpus)
     hours = property(fget=get_hours, fset=set_hours)
     memory = property(fget=get_memory, fset=set_memory)
+
+
+class SlurmJob:
+
+    def __init__(self, runcmd: str = "",  batchconfig: SlurmConfig = None):
+        self.__runcmd = runcmd
+        self.__batchconfig = SlurmConfig() if not batchconfig else batchconfig
+        self.__jobid = -1
+
+    def set_runcmd(self, runcmd: str):
+        self.__runcmd = runcmd
+
+    def set_config(self, config: SlurmConfig):
+        self.__batchconfig = config
+
+    def get_runcmd(self) -> int:
+        return self.__runcmd
+
+    def get_config(self) -> SlurmConfig:
+        return self.__batchconfig
+
+    def get_jobid(self) -> int:
+        return self.__jobid
+
+    def is_submitted(self) -> bool:
+        return self.__jobid > -1
+
+    def __configure_slurm(self) -> str:
+        logging.info("Using logfile: %s", self.__batchconfig.logfile)
+        submitcmd = "sbatch "
+        if self.__batchconfig.cluster == "CADES":
+            submitcmd += " -A birthright" 
+        submitcmd += " -N 1 -n 1 -c {}".format(self.__batchconfig.cpus)
+        if self.__batchconfig.cluster == "CORI":
+            submitcmd += " --qos={}".format(self.__batchconfig.partition)
+        else:
+            submitcmd += " --partition {}".format(self.__batchconfig.partition)
+        submitcmd += " -J {}".format(self.__batchconfig.jobname)
+        submitcmd += " -o {}".format(self.__batchconfig.logfile)
+        if self.__batchconfig.cluster == "CADES" or self.__batchconfig.cluster == "CORI":
+            submitcmd += " --time={:02d}:00:00".format(self.__batchconfig.hours)
+            submitcmd += " --mem={}G".format(self.__batchconfig.memory)
+        if self.__batchconfig.dependency > -1:
+            submitcmd += " -d {}".format(self.__batchconfig.dependency)
+        if len(self.__batchconfig.environment):
+            submitcmd += "export={}".format(self.__batchconfig.environment)
+        if self.__batchconfig.cluster == "CORI":
+            submitcmd += " --constraint=haswell"
+            submitcmd += " --licenses=cvmfs,cfs"
+            submitcmd += " --image=docker:mfasel/cc7-alice:latest"
+        if self.__batchconfig.njobs > 1:
+            submitcmd += " --array=0-{}".format(self.__batchconfig.njobs-1)
+        return submitcmd
+
+    def submit(self):
+        submitcmd = self.__configure_slurm()
+        submitcmd += " {}".format(self.__runcmd)
+        logging.debug(submitcmd)
+        submitResult = subprocess.run(submitcmd, shell=True, stdout=subprocess.PIPE)
+        sout = submitResult.stdout.decode("utf-8")
+        toks = sout.split(" ")
+        self.__jobid = int(toks[len(toks)-1])
+
+    runcmd = property(fget=get_runcmd, fset=set_runcmd)
+    config = property(fget=get_config, fset=set_config)
 
 def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1, environment: str = "") -> str:
     logging.info("Using logfile: %s", logfile)
@@ -104,7 +177,6 @@ def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str
         submitcmd += " --licenses=cvmfs,cfs"
         submitcmd += " --image=docker:mfasel/cc7-alice:latest"
     return submitcmd
-
 
 def submit(command: str, cluster: str, jobname: str, logfile: str, partition: str, arraysize: int = 0, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1, envrionment: str = "") -> int:
     submitcmd = ncorejob(cluster, 1, jobname, logfile, partition, timelimit, memory, dependency)
