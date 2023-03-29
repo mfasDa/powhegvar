@@ -13,7 +13,7 @@ export $PYTHONPATH=$PYTHONPATH:$SOURCEDIR
 
 cmd=$(printf "%s/analyse_times.py %s %s %s/%s" $SOURCEDIR $WORKDIR $PATTERN $WORKDIR $OUTPUTFILE)
 if [ "x$(echo $TAG)" != "x" ]; then
-    cmd=$(printf "%s -t %s" "$cmd" "$TAG")
+    cmd=$(printf "%s -t \"%s\"" "$cmd" "$TAG")
 fi
 echo "Running: $cmd"
 eval $cmd

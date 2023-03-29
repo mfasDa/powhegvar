@@ -14,7 +14,7 @@ def submit_analysis_job(workdir: str, pattern: str, outputfile: str, tag: str=""
     executable = os.path.join(repo, "run_analysis_jobtimes.sh")
     runcmd = f"{executable} {repo} {workdir} {pattern} {outputfile}"
     if len(tag):
-        runcmd += f" {tag}"
+        runcmd += f" \"{tag}\""
     logdir = os.path.join(workdir, "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
