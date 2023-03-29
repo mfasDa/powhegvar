@@ -20,11 +20,17 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig):
     logdir = os.path.join(simconfig.workdir, "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
-    logfile = os.path.join(logdir, f"joboutput_{simconfig.minpdf}_{simconfig.maxpdf}_%a.log")
+    logfilebase = "" 
+    jobname = f"pdfvar_{simconfig.powhegversion}"
+    if batchconfig.njobs> 1:
+        logfilebase = f"joboutput_{simconfig.minpdf}_{simconfig.maxpdf}_%a.log"
+    else: 
+        logfilebase = f"joboutput_{simconfig.minpdf}_{simconfig.maxpdf}_{simconfig.minslot}.log"
+        jobname += f"_{simconfig.minslot}"
+    logfile = os.path.join(logdir,logfilebase)
     executable = os.path.join(repo, "run_powheg_singularity_pdf.sh")
     runcmd = f"{executable} {batchconfig.cluster} {repo} {simconfig.workdir} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot} {simconfig.minpdf} {simconfig.maxpdf} {simconfig.minID}"
     logging.debug("Launching: %s", runcmd)
-    jobname = f"pdfvar_{simconfig.powhegversion}"
     if batchconfig.cluster == "CADES" or batchconfig.cluster == "CORI":
         runcmd = create_containerwrapper(runcmd, simconfig.workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion))
     return submit(runcmd, batchconfig.cluster, jobname, logfile, get_default_partition(batchconfig.cluster) if batchconfig.partition == "default" else batchconfig.partition, batchconfig.njobs, f"{batchconfig.hours}:00:00", f"{batchconfig.memory}G", dependency=batchconfig.dependency)
