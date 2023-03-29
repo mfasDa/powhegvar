@@ -25,7 +25,7 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig) -> int:
     if batchconfig.njobs> 1:
         logfilebase = "joboutput_scale_%a.log"
     else: 
-        logfilebase = f"joboutput_scale_{simconfig.minslot}"
+        logfilebase = f"joboutput_scale_{simconfig.minslot}.log"
         jobname += f"_{simconfig.minslot}"
     logfile = os.path.join(logdir,logfilebase)
     executable = os.path.join(repo, "run_powheg_singularity_scale.sh")
