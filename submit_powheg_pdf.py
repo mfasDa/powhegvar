@@ -74,6 +74,7 @@ if __name__ == "__main__":
             sys.exit(1)
         minslot = indexmin
         njobs = indexmax - indexmin + 1
+        logging.info("Found min. index: %d, number of slots: %d", minslot, njobs)
     request_release = args.version
     if cluster == "CADES":
         releases_all = find_powheg_releases() if cluster == "CADES" else ["default"]

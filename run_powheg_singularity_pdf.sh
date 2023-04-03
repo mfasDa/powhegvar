@@ -15,6 +15,6 @@ source $SOURCEDIR/powheg_env.sh $CLUSTER $POWHEG_VERSION
 RUNSLOT=
 let "RUNSLOT=SLOT+MINSLOT"
 export PYTHONPATH=$PYTHONPATH:$SOURCEDIR
-cmd=$(printf "%s/powheg_runner.py %s %s --slot %s -t dijet --minpdf %s --maxpdf %s --minid %s" $SOURCEDIR $OUTPUTBASE $POWHEG_INPUT $SLOT $MINPDF $MAXPDF $MINID)
+cmd=$(printf "%s/powheg_runner.py %s %s --slot %s -t dijet --minpdf %s --maxpdf %s --minid %s" $SOURCEDIR $OUTPUTBASE $POWHEG_INPUT $RUNSLOT $MINPDF $MAXPDF $MINID)
 echo "Running: $cmd"
 eval $cmd
