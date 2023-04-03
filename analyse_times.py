@@ -34,7 +34,8 @@ def histogram_times(jobtimes: list, outputfile: str, tag: str = ""):
     plt.text(meantime - 2*stddevtime, .85 * maxval, r'$\mu=%d sec,\ \sigma=%d sec$' %(meantime, stddevtime))
     plt.axis([axismin, axismax, 0, 1.1*maxval])
     plt.grid(True)
-    plt.savefig(outputfile)
+    for filetype in ["pdf", "png"]:
+        plt.savefig(f"{outputfile}.{filetype}")
 
 def get_jobtime_seconds(logfile: str) -> int:
     logging.info("Reading %s", logfile)
