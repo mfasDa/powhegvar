@@ -53,14 +53,17 @@ def submit_check_summary(cluster: str, repo: str, workdir: str, partition: str, 
     jobname = "checksummary_pwgevents"
     return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, 0, f"{hours}:00:00", f"{mem}G", dependency)
 
-def submit_checks(cluster: str, repo: str, workdir: str, partition: str, pwhgjob: int, multi: bool = False):
-    logging.info("Launching checking chain for workdir %s (%s-job mode)", workdir, "multi" if multi else "single")
+def submit_checks(cluster: str, repo: str, workdir: str, partition: str, pwhgjob: int, multi: bool = False, summaryOnly: bool = False):
     checkjob = -1
-    if multi:
-        checkjob = submit_check_jobs(cluster, repo, workdir, partition, 2, 4, pwhgjob)
+    if not summaryOnly:
+        logging.info("Launching checking chain for workdir %s (%s-job mode)", workdir, "multi" if multi else "single")
+        if multi:
+            checkjob = submit_check_jobs(cluster, repo, workdir, partition, 2, 4, pwhgjob)
+        else:
+            checkjob = submit_check_job(cluster, repo, workdir, partition, 2, 4, pwhgjob)
+        logging.info("Job ID for automatic checking: %d", checkjob)
     else:
-        checkjob = submit_check_job(cluster, repo, workdir, partition, 2, 4, pwhgjob)
-    logging.info("Job ID for automatic checking: %d", checkjob)
+        logging.info("launching only final summary job")
     checksummaryjob = submit_check_summary(cluster, repo, workdir, partition, 2, 1, checkjob)
     logging.info("Job ID for analysing checking results: %d", checksummaryjob)
 
