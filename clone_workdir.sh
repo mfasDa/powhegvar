@@ -1,0 +1,6 @@
+#! /bin/bash
+
+INPUTDIR=$1
+OUTPUTDIR=$2
+
+cp -r $INPUTDIR $OUTPUTDIR
