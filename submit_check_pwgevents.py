@@ -4,7 +4,7 @@ import os
 import argparse
 import logging
 import sys
-from helpers.checkjob import submit_checks
+from helpers.checkjob import submit_checks, submit_check_slot
 from helpers.cluster import get_cluster, get_default_partition
 from helpers.setup_logging import setup_logging
 
@@ -14,6 +14,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="Partition")
     parser.add_argument("-s", "--single", action="store_true", help="Submit single check job")
     parser.add_argument("-f", "--final", action="store_true", help="Only submit final summary job")
+    parser.add_argument("--slot", metavar="SLOT", type=int, default=-1, help="Specific slot (if requested)")
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
@@ -28,4 +29,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.workdir):
         logging.error("Working directory %s doesn't exist", args.workdir)
         sys.exit(1)    
-    submit_checks(cluster, repo, args.workdir, partition, -1, False if args.single else True, args.final)
+    if args.slot > -1:
+        submit_check_slot(cluster, repo, args.workdir, args.slot, partition, -1)
+    else:
+        submit_checks(cluster, repo, args.workdir, partition, -1, False if args.single else True, args.final)
