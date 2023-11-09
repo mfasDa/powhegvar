@@ -10,8 +10,11 @@ R__ADD_INCLUDE_PATH($PYTHIA_ROOT/include)
 #include <array>
 #include <map>
 #include <memory>
+#include <tuple>
 #include <unordered_map>
+#include <sstream>
 #include <string>
+#include <string_view>
 #include <TROOT.h>
 #include <TSystem.h>
 #include <TH1.h>
@@ -46,8 +49,8 @@ Bool_t IsDMeson(Int_t pc);
 
 class PythiaHandler {
 public:
-    PythiaHandler() : mEngine(), mPDFset("default"), mTune(21), mWithMPI(false), mDecay(false), mOutput(nullptr){}
-    ~PythiaHandler(){}
+    PythiaHandler() = default;
+    ~PythiaHandler() = default;
 
     void configure(const char *inputfile, unsigned long seed){
         // Configure
@@ -183,12 +186,12 @@ public:
 
 private:
     Pythia8::Pythia mEngine;
-    std::string mPDFset;
-    int mTune;
-    bool mWithMPI;
-    bool mDecay;
+    std::string mPDFset = "default";
+    int mTune = 21;
+    bool mWithMPI = false;
+    bool mDecay = false;
     std::shared_ptr<Pythia8::PowhegHooks> mPowhegHooks;
-    TClonesArray *mOutput;
+    TClonesArray *mOutput = nullptr;
 };  
 
 class Variation {
@@ -203,8 +206,8 @@ public:
     };
 
     Variation() = default;
-    Variation(int pdfid, int weightID) : mPDFID(pdfid), mWeightID(weightID) { } 
-    ~Variation() = default;
+    Variation(int weightID) : mWeightID(weightID) { } 
+    virtual ~Variation() = default;
 
     bool operator==(const Variation &other) const { return mWeightID == other.mWeightID; }
     bool operator<(const Variation &other) const { return mWeightID < other.mWeightID; }
@@ -301,11 +304,10 @@ public:
         if(jetetaphi) jetetaphi->Fill(eta, phi,  weight);
     }
 
-    int getPDF() const { return mPDFID; }
     double getSumW() const { return mSumWeight; }
 
     void write(TFile &writer) {
-        std::string dirname = Form("pdf%d", mPDFID);
+        std::string dirname = getOutputDirectory();
         writer.mkdir(dirname.data());
         writer.cd(dirname.data());
         for(int iR= 0; iR < NJETR; iR++) {
@@ -324,10 +326,16 @@ public:
         NumberofTrials->Write();
     } 
 
+    virtual void printStream(std::ostream & stream) const {
+        stream << "Unknown Variation, Total Weight is : " << getSumW();
+    }
+
+protected:
+    virtual std::string getOutputDirectory() { return ""; }
+
 private:
     static const int NJETR = 5;
-    int mPDFID;
-    int mWeightID;
+    int mWeightID = 0;
     double mSumWeight = 0;
     std::array<TH1 *, NJETR> mJetPtSpecJet;
     std::array<TH1 *, NJETR> mJetPtSpecSub; 
@@ -340,7 +348,73 @@ private:
     std::array<TH2 *, NJETR> mCJetEtaPhi; 
 };
 
-void RunPythia8PDF(const char *inputfile = "pwgevents.lhe", const char *foutname = "Pythia8JetSpectra.root", Int_t ndeb = 1) {
+class VariationPDF : public Variation {
+    public:
+        VariationPDF()  = default;
+        VariationPDF(int pdfid, int weightID) : mPDFID(pdfid), Variation(weightID) { } 
+        ~VariationPDF() final = default;
+        int getPDF() const { return mPDFID; }
+        void printStream(std::ostream &stream) const final {
+            stream << "Variation PDF " << getPDF() << ", Total Weight is : " << getSumW();
+        }
+    protected:
+        std::string getOutputDirectory() final { return  Form("pdf%d", mPDFID); }
+    private:
+        int mPDFID = 0;
+
+};
+
+class VariationScale : public Variation {
+    public:
+        VariationScale() = default;
+        VariationScale(double muf, double mur, int weightID) : mMuf(muf), mMur(mur), Variation(weightID) {}
+        ~VariationScale() final = default;
+
+        double getMuf() const { return mMuf; }
+        double getMur() const { return mMur; }
+        void printStream(std::ostream &stream) const final {
+            stream << "Variation muf " << getMuf() << ", mur " << getMur() << ", Total Weight is : " << getSumW();
+        }
+    protected:
+        std::string getOutputDirectory() final { return Form("muf%d_mur%d", int(10.*mMuf), int(10.*mMur)); }
+    private:
+        double mMuf = 1.;
+        double mMur = 1.;
+};
+
+std::ostream &operator<<(std::ostream &stream, const Variation &var) {
+    var.printStream(stream);
+    return stream;
+}
+
+std::ostream &operator<<(std::ostream &stream, const VariationPDF &var) {
+    var.printStream(stream);
+    return stream;
+}
+
+std::ostream &operator<<(std::ostream &stream, const VariationScale &var) {
+    var.printStream(stream);
+    return stream;
+}
+
+std::tuple<double, double> decode_scalestring(const std::string_view scalestring) {
+    double muf = 0., mur = 0.;
+    std::stringstream decoder(scalestring.data());
+    std::string buffer;
+    while(std::getline(decoder, buffer, ',')) {
+        auto separator = buffer.find("=");
+        auto key = buffer.substr(0, separator),
+             value = buffer.substr(separator+1);
+        if(key.find("muf") != std::string::npos) {
+            muf = std::stod(value);
+        } else if(key.find("mur") != std::string::npos) {
+            mur = std::stod(value);
+        }
+    }
+    return std::make_tuple(muf, mur);
+}
+
+void RunPythia8WithWeights(const char *inputfile = "pwgevents.lhe", const char *foutname = "Pythia8JetSpectra.root", Int_t ndeb = 1) {
     clock_t begin_time = clock();
 
     const double MBtoPB = 1e-9;
@@ -353,7 +427,7 @@ void RunPythia8PDF(const char *inputfile = "pwgevents.lhe", const char *foutname
         std::cout << "\nseed for Random number generation is : " << sseed << std::endl;
     }
 
-    const Int_t chargedOnly = 0; // charged only or full jets
+    Int_t chargedOnly = 0; // charged only or full jets
 
     const Int_t nR = 5;
     const Float_t Rvals[nR] = {0.2, 0.3, 0.4, 0.5, 0.6}; // Cone radii
@@ -408,6 +482,16 @@ void RunPythia8PDF(const char *inputfile = "pwgevents.lhe", const char *foutname
         if(val > 0) {
             std::cout << "Setting Decays" << std::endl;
             pythia.setDecay();
+        } 
+    }
+    if(gSystem->Getenv("CONFIG_JETTYPE")) {
+        int val = atoi(gSystem->Getenv("CONFIG_JETTYPE"));
+        if(val == 1) {
+            std::cout << "Setting full jets" << std::endl;
+            chargedOnly = 0;
+        } else {
+            std::cout << "Setting charged jets" << std::endl;
+            chargedOnly = 1;
         } 
     }
     bool applyPtCut = false;
@@ -465,6 +549,7 @@ void RunPythia8PDF(const char *inputfile = "pwgevents.lhe", const char *foutname
     std::cout << "Found " << nweights << " weights" << std::endl;
     std::cout << "Found " << groups->size() << " weight groups" << std::endl;
     std::map<int, int> mapping_weight_pdf;
+    std::map<int, std::pair<float, float>> mapping_weight_scale;
     for(auto iw : ROOT::TSeqI(0, nweights)) {
         auto label = engine.info.weightLabel(iw);
         std::cout << "Weight " << iw << ": " << label << std::endl;
@@ -474,25 +559,39 @@ void RunPythia8PDF(const char *inputfile = "pwgevents.lhe", const char *foutname
         auto weights = grp.second.weights;
         for(auto weight : weights) {
             int weightID = std::stoi(weight.second.id);
-            TString pdfstring(weight.second.contents);
-            pdfstring.ReplaceAll("pdf", "");
-            int pdfsetID = pdfstring.Atoi();
-            std::cout << "Extracted pdfset " << pdfsetID << " for ID " << weightID << std::endl;
-            mapping_weight_pdf[weightID] = pdfsetID;
+            if(grp.first == "pdf uncertainties") {
+                TString pdfstring(weight.second.contents);
+                pdfstring.ReplaceAll("pdf", "");
+                int pdfsetID = pdfstring.Atoi();
+                std::cout << "Extracted pdfset " << pdfsetID << " for ID " << weightID << std::endl;
+                mapping_weight_pdf[weightID] = pdfsetID;
+            }
+            if(grp.first == "scale uncertainties") {
+                auto [muf, mur] = decode_scalestring(weight.second.contents);
+                std::cout << "Extracted muf=" << muf << ", mur=" << mur << std::endl;
+                mapping_weight_scale[weightID] = {muf, mur}; 
+            }
         }
     }
+    int weightID_main = 1000;
 
     // Setting up variation handler (histogram container for certain pdf set)
     // The weight ID is used to map the pdf set
-    // We will used the convention: weight ID 'main' (lhe) -> 0 -> pdfset: 13100 (CT14 cent)
-    std::map<int, Variation> variations;
-    Variation basevar(13100, 0);
-    basevar.init();
+    // We will used the convention: weight ID 'main' (lhe) -> 1000 -> pdfset: 13100 (CT14 cent)
+    std::map<int, std::shared_ptr<Variation>> variations;
+    auto basevar = std::make_shared<VariationPDF>(13100, weightID_main); // main must have a large ID to be outside the range of 
+    basevar->init();
     variations[0] = basevar;
     for(auto &weight : mapping_weight_pdf) {
         std::cout << "Setting new variation with ID " << weight.first << " and PDFset " << weight.second << std::endl;
-        Variation nextvar(weight.second, weight.first);
-        nextvar.init();
+        auto nextvar = std::make_shared<VariationPDF>(weight.second, weight.first);
+        nextvar->init();
+        variations[weight.first] = nextvar;
+    }
+    for(auto &weight : mapping_weight_scale) {
+        std::cout << "Setting new variation with ID " << weight.first << " and muf " << weight.second.first << " / mur " << weight.second.second << std::endl;
+        auto nextvar = std::make_shared<VariationScale>(weight.second.first, weight.second.second, weight.first);
+        nextvar->init();
         variations[weight.first] = nextvar;
     }
 
@@ -525,14 +624,14 @@ void RunPythia8PDF(const char *inputfile = "pwgevents.lhe", const char *foutname
             double weightvalue = wgt.second * MBtoPB;
             int weightID = -1;
             if(idstr == "main") {
-                weightID = 0;
+                weightID = weightID_main;
             } else {
                 weightID = std::stoi(idstr);
             }
             eventWeights[weightID] = weightvalue;
             auto variation = variations.find(weightID);
             if(variation != variations.end()) {
-                variation->second.fillWeight(weightvalue);
+                variation->second->fillWeight(weightvalue);
             }
         }
         pythia.importParticles("All");
@@ -775,8 +874,8 @@ void RunPythia8PDF(const char *inputfile = "pwgevents.lhe", const char *foutname
                     if(weightfound != eventWeights.end()) {
                         weight = weightfound->second;
                     }
-                    var.second.fillSpectrum(iR+2, Variation::SpecType_t::kJetNoSub, pt, eta, phi, weight);
-                    var.second.fillSpectrum(iR+2, Variation::SpecType_t::kJetSub, PtSub, eta, phi, weight);
+                    var.second->fillSpectrum(iR+2, Variation::SpecType_t::kJetNoSub, pt, eta, phi, weight);
+                    var.second->fillSpectrum(iR+2, Variation::SpecType_t::kJetSub, PtSub, eta, phi, weight);
                 }
 
                 //b-jet
@@ -790,8 +889,8 @@ void RunPythia8PDF(const char *inputfile = "pwgevents.lhe", const char *foutname
                             if(weightfound != eventWeights.end()) {
                                 weight = weightfound->second;
                             }
-                            var.second.fillSpectrum(iR+2, Variation::SpecType_t::kBJetNoSub, pt, eta, phi, weight);
-                            var.second.fillSpectrum(iR+2, Variation::SpecType_t::kBJetSub, PtSub, eta, phi, weight);
+                            var.second->fillSpectrum(iR+2, Variation::SpecType_t::kBJetNoSub, pt, eta, phi, weight);
+                            var.second->fillSpectrum(iR+2, Variation::SpecType_t::kBJetSub, PtSub, eta, phi, weight);
                         }
                         //std::cout<<"This is a b-jet "<std::<endl;
                         break;
@@ -809,8 +908,8 @@ void RunPythia8PDF(const char *inputfile = "pwgevents.lhe", const char *foutname
                             if(weightfound != eventWeights.end()) {
                                 weight = weightfound->second;
                             }
-                            var.second.fillSpectrum(iR+2, Variation::SpecType_t::kCJetNoSub, pt, eta, phi, weight);
-                            var.second.fillSpectrum(iR+2, Variation::SpecType_t::kCJetSub, PtSub, eta, phi, weight);
+                            var.second->fillSpectrum(iR+2, Variation::SpecType_t::kCJetNoSub, pt, eta, phi, weight);
+                            var.second->fillSpectrum(iR+2, Variation::SpecType_t::kCJetSub, PtSub, eta, phi, weight);
                         }
                         //hCJetPtSpecJet[iR]->Fill(inclusive_jets[i].perp(), evt_wght);
                         //hCJetPtSpecSub[iR]->Fill(PtSub, evt_wght);
@@ -841,8 +940,8 @@ void RunPythia8PDF(const char *inputfile = "pwgevents.lhe", const char *foutname
     hConstituentEtaPhiCharged->Write();
     hConstituentEtaPhiNeutral->Write();
     for(auto var : variations) {
-        std::cout  << "PDF " << var.second.getPDF() << ", Total Weight is : " << var.second.getSumW() << std::endl;
-        var.second.write(*fout);
+        std::cout << *(var.second) << std::endl;
+        var.second->write(*fout);
     }
 
     //Normalization
