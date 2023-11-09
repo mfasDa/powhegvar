@@ -12,6 +12,7 @@ import time
 from helpers.setup_logging import setup_logging
 from helpers.reweighting import create_config_pdfreweight, create_config_scalereweight
 from helpers.events import create_config_nevens
+from helpers.powheg import is_valid_process
 
 class POWHEG_runner:
 
@@ -51,7 +52,7 @@ class POWHEG_runner:
         self.__gridrepository = gridrepository
 
     def set_powhegtype(self, pwhgtype):
-        if not self.__is_valid_pwhgtype(pwhgtype):
+        if not is_valid_process(pwhgtype):
             logging.error("Selected POWHEG type %s invalid", pwhgtype)
         else:
             self.__powhegtype = pwhgtype

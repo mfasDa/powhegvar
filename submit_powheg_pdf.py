@@ -29,7 +29,7 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig):
         jobname += f"_{simconfig.minslot}"
     logfile = os.path.join(logdir,logfilebase)
     executable = os.path.join(repo, "run_powheg_singularity_pdf.sh")
-    runcmd = f"{executable} {batchconfig.cluster} {repo} {simconfig.workdir} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot} {simconfig.minpdf} {simconfig.maxpdf} {simconfig.minID}"
+    runcmd = f"{executable} {batchconfig.cluster} {repo} {simconfig.workdir} {simconfig.process} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot} {simconfig.minpdf} {simconfig.maxpdf} {simconfig.minID}"
     logging.debug("Launching: %s", runcmd)
     if batchconfig.cluster == "CADES" or batchconfig.cluster == "CORI":
         runcmd = create_containerwrapper(runcmd, simconfig.workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion))
@@ -44,6 +44,7 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--input", metavar="POWHEGINPUT", type=str, default=os.path.join(repo, "powheginputs", "powheg_13TeV_CT14_default.input"), help="POWHEG input")
     parser.add_argument("-v", "--version", metavar="VERSION", type=str, default="r3898", help="POWEHG version")
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="Partition")
+    parser.add_argument("--process", metavar="PROCESS", type=str, default="dijet", help="Process (default: dijet)")
     parser.add_argument("--slot", metavar="SLOT", type=int, default=-1, help="Process single slot (default: -1 := off)")
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
@@ -93,6 +94,7 @@ if __name__ == "__main__":
     simconfig.maxpdf = args.maxpdf
     simconfig.minID = args.minid
     simconfig.minslot = minslot
+    simconfig.process = args.process
 
     batchconfig = SlurmConfig()
     batchconfig.cluster = cluster

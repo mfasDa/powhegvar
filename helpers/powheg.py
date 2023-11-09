@@ -3,6 +3,12 @@ import logging
 import os
 import random
 
+def get_valid_processes() -> list:
+    return ["dijet", "directphoton", "hvq", "W", "Z"]
+
+def is_valid_process(procname: str) -> bool:
+    return procname in get_valid_processes()
+
 def load_pwginput(inputfile: str) -> dict:
     lines = {}
     with open(inputfile, "r") as reader:
@@ -73,8 +79,9 @@ def check_compatible(targetfile: str, inputfile: str, ignore_keys: str) -> bool:
         return True
     return False
 
-def build_powheg_stage(inputfile: str, workdir: str, stage: int, xgrid_iter: int, nslot: int, nevents: int):
-    outputfile = os.path.join(workdir, "powheg.input")
+def build_powheg_stage(inputfile: str, workdir: str, stage: int, xgrid_iter: int, nslot: int, nevents: int, outputfile: str = "default"):
+    if outputfile == "default":
+        outputfile = os.path.join(workdir, "powheg.input")
     if os.path.exists(outputfile):
         ignorekeys = ["numevts", "manyseeds", "maxseeds", "parallelstage", "xgriditeration", "storemintupb"]
         if not check_compatible(outputfile, inputfile, ignorekeys):
@@ -109,7 +116,7 @@ def build_powheg_stage(inputfile: str, workdir: str, stage: int, xgrid_iter: int
                         writer.write("xgriditeration {}\n".format(xgrid_iter))
                     has_xgriditer = True
                 elif "storemintupb" in line:
-                    if stage == 1:
+                    if stage == 1 or stage == 2:
                         writer.write("storemintupb 1\n")
                     has_storemintupb = True
                 else:
@@ -131,8 +138,9 @@ def build_powheg_stage(inputfile: str, workdir: str, stage: int, xgrid_iter: int
                 writer.write("numevts {}\n".format(nevents))
         writer.close()
 
-def build_powhegseeds(workdir: str, nseeds: int = 1000000):
-    seedfile = os.path.join(workdir, "pwgseeds.dat")
+def build_powhegseeds(workdir: str, nseeds: int = 1000000, seedfile: str = "default"):
+    if seedfile == "default":
+        seedfile = os.path.join(workdir, "pwgseeds.dat")
     if os.path.exists(seedfile):
         os.remove(seedfile)
     with open(seedfile, "w") as writer:

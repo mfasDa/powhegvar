@@ -15,7 +15,10 @@ MACRO=
 if [ "$PYTHIAMACRO" == "default" ]; then
 	MACRO=$MACRODIR/RunPythia8.C
 	echo "Using default macro: $MACRO"
-else 
+elif [ "$PYTHIAMACRO" == "reweight" ]; then
+	MACRO=$MACRODIR/RunPythia8WithWeights.C
+	echo "Using reweight macro: $MACRO"
+else  
 	MACRO=$MACRODIR/$PYTHIAMACRO
 fi
 if [ "x$(echo $PYVERSION | grep ROOT)" != "x" ]; then

@@ -13,6 +13,7 @@ class SimConfig:
         self.__minID = 0
         self.__minslot = -1
         self.__gridrepository = ""
+        self.__process = ""
     
     def set_workdir(self, workdir: str):
         self.__workdir = workdir
@@ -48,6 +49,9 @@ class SimConfig:
     def set_gridrepository(self, gridrepository: str):
         self.__gridrepository = gridrepository
 
+    def set_process(self, procname: str):
+        self.__process = procname
+
     def get_workdir(self) -> str:
         return self.__workdir
 
@@ -77,6 +81,9 @@ class SimConfig:
 
     def get_gridrepository(self) -> str:
         return self.__gridrepository
+
+    def get_process(self) -> str:
+        return self.__process
     
     def is_scalereweight(self) -> bool:
         return self.__scalereweight
@@ -94,6 +101,7 @@ class SimConfig:
     minID = property(fget=get_minID, fset=set_minID)
     minslot = property(fget=get_minslot, fset=set_minslot)
     gridrepository = property(fget=get_gridrepository, fset=set_gridrepository)
+    process = property(fget=get_process, fset=set_process)
 
 def get_batch_executable(config: SimConfig) -> str:
     if config.is_scalereweight():

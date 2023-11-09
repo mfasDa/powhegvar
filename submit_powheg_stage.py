@@ -36,91 +36,171 @@ class slurmconfig:
 class MultiStageJob:
     def __init__(self, workdir: str, stage: int, xgriditer: int, slots: int, config: slurmconfig):
         self.__executable = os.path.join(repo, "powheg_stage_steer.sh")
+        self.__prepare_executable = os.path.join(repo, "powheg_stage_prepare.sh")
         self.__workdir = workdir
         self.__stage = stage
         self.__xgriditer = xgriditer
         self.__slots = slots
         self.__config = config
         self.__jobid = -1
-        self.__originalInput = ""
-        self.__nextsubmitter = -1
+        self.__jobidPrepare = -1
+        self.__dependency = -1
+        self.__stageconfig = "default"
+        self.__stageseeds = "default"
 
-    def build_stage(self, pwginput: str, nevents: int):
+    def set_dependency(self, dependency: int):
+        self.__dependency = dependency
+
+    def build_stage(self, pwginput: str, nevents: int) -> tuple: 
         if not os.path.exists(self.__workdir):
             os.makedirs(self.__workdir, 0o755)
-        build_powheg_stage(pwginput, self.__workdir, self.__stage, self.__xgriditer, self.__slots, nevents)
-        build_powhegseeds(self.__workdir, self.__slots)
-        self.__originalInput = pwginput
+        self.__stageconfig = os.path.join(self.__workdir, f"powheg_stage{self.__stage}_xgiter{self.__xgriditer}.input")
+        self.__stageseeds = os.path.join(self.__workdir, f"pwgseeds_stage{self.__stage}_xgiter{self.__xgriditer}.input")
+        build_powheg_stage(pwginput, self.__workdir, self.__stage, self.__xgriditer, self.__slots, nevents, self.__stageconfig)
+        build_powhegseeds(self.__workdir, self.__slots, self.__stageseeds)
 
     def get_jobid(self) -> int:
         return self.__jobid
-
-    def get_jobid_nextstage(self) ->int:
-        return self.__nextsubmitter
+    
+    def get_jobid_prepare(self) -> int:
+        return self.__jobidPrepare
 
     def __build_command(self, powheg_version: str)-> str:
         return f"{self.__executable} {self.__config.cluster()} {repo} {self.__workdir} {powheg_version} {self.__stage} {self.__xgriditer}"
 
-    def submit(self, powheg_version):
-        jobname = "pwg_st{}".format(self.__stage)
-        logfilebase =  "powheg_stage{}".format(self.__stage)
+    def __prepare_command(self):
+        return f"{self.__prepare_executable} {self.__workdir} {self.__stageconfig} {self.__stageseeds}"
+
+    def submit(self, powheg_version, timelimit = ""):
+        jobname = f"pwg_st{self.__stage}"
+        jobname_prepare = f"pwprep_st{self.__stage}"
+        logfilebase =  f"powheg_stage{self.__stage}"
+        logfilebase_prepare = f"powhegprep_stage{self.__stage}"
         if self.__stage == 1:
-            jobname += "_xg{}".format(self.__xgriditer)
-            logfilebase += "_xgriditer{}".format(self.__xgriditer)
+            jobname += f"_xg{self.__xgriditer}"
+            jobname_prepare += f"_xg{self.__xgriditer}"
+            logfilebase += f"_xgriditer{self.__xgriditer}"
+            logfilebase_prepare += f"_xgriditer{self.__xgriditer}"
         logfilebase += "_%a.log"
         logdir = os.path.join(self.__workdir, "logs")
         if not os.path.exists(logdir):
             os.makedirs(logdir, 0o755)
         logfile = os.path.join(logdir, logfilebase)
-        self.__jobid = submit(self.__build_command(powheg_version), self.__config.cluster(), jobname, logfile, self.__config.queue(), self.__slots, self.__config.timelimit(), self.__config.memory())
+        logfile_prepare = os.path.join(logdir, logfilebase_prepare)
+        if len(timelimit):
+            timelimit =  self.__config.timelimit()
+        self.__jobidPrepare = submit(self.__prepare_command(), self.__config.cluster(), jobname_prepare, logfile_prepare, self.__config.queue(), 1, "00:10:00", "2G", self.__dependency)
+        self.__jobid = submit(self.__build_command(powheg_version), self.__config.cluster(), jobname, logfile, self.__config.queue(), 1 if self.__stage == 3 else self.__slots, timelimit, self.__config.memory(), self.__jobidPrepare)
     
-    def submit_next(self, powheg_version):
-        if self.__stage == 3:
-            logging.info("Already at the last stage, no more stages to submit")
-            return
-        nextstage = 1
-        nextiter = 2
-        if self.__stage == 1:
-            if self.__xgriditer == 1:
-                nextiter = griditer = 2
-            else:
-                nextstage = 2
-                nextiter = 1
-        elif self.__stage == 2:
-            nextstage = 3
-        logfilename = f"submit_stage{nextstage}"
-        jobname = f"submit_stage{nextstage}"
-        # remove powheg version from workdir
-        stripped_workdir = self.__workdir
-        stripped_workdir = stripped_workdir.replace(f"POWHEG_{powheg_version}", "")
-        stripped_workdir = stripped_workdir.rstrip("/")
-        runcmd = f"{repo}/stagewrapper.sh {repo}/submit_powheg_stage.py {stripped_workdir} --repo {repo} -i {self.__originalInput} -n {self.__slots} -v {powheg_version} -p {self.__config.queue()} -s {nextstage}"
-        if nextstage == 1:
-            runcmd = f"{runcmd} -x {nextiter}"
-            jobname = f"{jobname}_xgrid{nextiter}"
-            logfilename = f"{logfilename}_xgrid{nextiter}"
-        logfilename = f"{logfilename}.log"
-        memory_int = self.__config.memory().split("G")[0]
-        hours = self.__config.timelimit().split(":")[0]
-        runcmd = f"{runcmd} --mem {memory_int} --hours {hours} -c"
-        logfile = os.path.join(self.__workdir, "logs", logfilename)
-        self.__nextsubmitter = submit(runcmd, self.__config.cluster(), jobname, logfile, self.__config.queue(), 0, "00:30:00", "2G", self.__jobid)
+class StageConfiguration:
+
+    class StageException(Exception):
+
+        def __init__(self, stageIndex: int):
+            super(self, Exception).__init__()
+            self.__stageIndex = stageIndex
+
+        def __str__(self): 
+            return f"Stage index {self.__stageIndex} not existing"
+
+        def get_stageindex(self) -> int:
+            return self.__stageIndex
+
+    class Stage:
+        def __init__(self, stageindex: int, xgindex: int, timelimeit: str):
+            self.__stageindex = stageindex
+            self.__xgindex = xgindex
+            self.__timelimit = timelimeit
+
+        def set_stageindex(self, stageindex: int):
+            self.__stageindex = stageindex
+
+        def set_xgindex(self, xgindex: int):
+            self.__xgindex = xgindex
+
+        def set_timelimit(self, timelimit: str):
+            self.__timelimit = timelimit
+
+        def get_stageindex(self) -> int:
+            return self.__stageindex
+        
+        def get_xgindex(self) -> int:
+            return self.__xgindex
+        
+        def get_timelimit(self) -> int:
+            return self.__timelimit
+
+        stageindex = property(fset=set_stageindex, fget=get_stageindex)
+        xgindex = property(fset=set_xgindex, fget=get_xgindex)
+        timelimit = property(fset=set_timelimit, fget=get_timelimit)
+
+    def __init__(self):
+        self.__currentstage = 0
+        self.__configs = []
+        self.__built_config()
+
+    def __built_config(self):
+        self.__configs.clear()
+        self.__configs.append(self.Stage(1, 1, "00:30:00"))
+        self.__configs.append(self.Stage(1, 2, "00:30:00"))
+        self.__configs.append(self.Stage(2, 1, "00:05:00"))
+        self.__configs.append(self.Stage(3, 1, "00:05:00"))
+
+    def get_current_stage(self) ->Stage:
+        if self.__currentstage >= len(self.__configs):
+            raise self.StageException(self.__currentstage)
+        return self.__configs[self.__currentstage]
+
+    def hasNextStage(self):
+        return self.__currentstage + 1 < len(self.__configs)
+
+    def get_next_stage(self) -> Stage:
+        self.forward_stage()
+        return self.__configs[self.__currentstage]
+    
+    def forward_stage(self):
+        if self.__currentstage + 1 >= len(self.__configs):
+           raise self.StageException(self.__currentstage + 1) 
+        self.__currentstage += 1 
+
+
+class StageHandler:
+
+    def __init__(self, workdir: str, powheginput: str, pwgversion: int, njobs: int, batchconfig):
+        self.__workdir = workdir
+        self.__pwginput = powheginput
+        self.__pwgversion = pwgversion
+        self.__njobs = njobs
+        self.__batchconfig = batchconfig
+        self.__stageconfig = StageConfiguration()
+
+    def submit_stage(self, config: StageConfiguration.Stage, dependency: int = -1) -> int:
+        jobdef = MultiStageJob(self.__workdir, config.stageindex, config.xgindex, self.__njobs, self.__batchconfig)
+        if dependency >= 0:
+            jobdef.set_dependency(dependency)
+        jobdef.build_stage(self.__pwginput, 1)
+        jobdef.submit(self.__pwgversion, config.timelimit)
+        jobid = jobdef.get_jobid()
+        jobid_prepare = jobdef.get_jobid_prepare()
+        logging.info("Submitting Stage %d, xgrid iteration %d under Job ID %d (prepare Job ID %d)", config.stageindex, config.xgindex, jobid, jobid_prepare)
+        return jobid
+
+    def process(self):
+        currentJob = self.submit_stage(self.__stageconfig.get_current_stage())
+        while self.__stageconfig.hasNextStage():
+            currentJob = self.submit_stage(self.__stageconfig.get_next_stage(), currentJob)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("submit_powheg_stage.py", description="Submitter for multi-stage POWHEG")
     parser.add_argument("workdir", metavar="WORKDIR", type=str, help="Working directory")
     parser.add_argument("-i", "--input", metavar="POWHEGINPUT", type=str, default=os.path.join(repo, "powheginputs", "powheg_13TeV_CT14_default.input"), help="POWHEG input")
     parser.add_argument("-n", "--njobs", metavar="NJOBS", type=int, default=200, help="Number of slots")
-    parser.add_argument("-e", "--events", metavar="EVENTS", type=int, default=25000, help="Number of events (stage4)")
-    parser.add_argument("-m", "--minslot", metavar="MINSLOT", type=int, default=0, help="Min. slot ID")
     parser.add_argument("-v", "--version", metavar="VERSION", type=str, default="r3898", help="POWEHG version")
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="Partition")
-    parser.add_argument("-s", "--stage", metavar="STAGE", type=int, default=1, help="POWHEG parallel stage (default: 1)")
-    parser.add_argument("-x", "--xgrid", metavar="XGRID", type=int, default=1, help="POWHEG parallel stage (default: 1)")
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
-    parser.add_argument("-c", "--continuestage", action="store_true", help="automatically submit next stage")
     parser.add_argument("--repo", metavar="REPO", type=str, default="", help="Repository")
     args = parser.parse_args()
     setup_logging(args.debug)
@@ -128,10 +208,6 @@ if __name__ == "__main__":
     if len(args.repo):
         # Mainly needed for automatic submission of higher stages
         repo = args.repo
-
-    if args.stage > 4:
-        logging.error("Max. 4 stages")
-        sys.exit(1)
 
     cluster = get_cluster()
     logging.info("Submitting for cluster %s", cluster)
@@ -147,12 +223,5 @@ if __name__ == "__main__":
     config = slurmconfig(cluster, partition, timelimit, memory)
 
     workdir = os.path.join(args.workdir, "POWHEG_{}".format(args.version))
-    job = MultiStageJob(workdir, args.stage, args.xgrid, args.njobs, config)
-    job.build_stage(args.input, args.events)
-    job.submit(args.version)
-    logging.info("Submitted stage job under ID %d", job.get_jobid())
-    if args.continuestage:
-        job.submit_next(args.version)
-        submitter_next = job.get_jobid_nextstage()
-        if submitter_next > -1:
-            logging.info("Launched sumbitter for next stage/xgrid under ID %d", submitter_next)
+    submitter = StageHandler(workdir, args.input, args.version, args.njobs, config)
+    submitter.process()

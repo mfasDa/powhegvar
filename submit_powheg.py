@@ -8,6 +8,8 @@ from helpers.checkjob import submit_checks
 from helpers.cluster import get_cluster, get_default_partition
 from helpers.containerwrapper import create_containerwrapper
 from helpers.datahandler import find_pwgevents
+from helpers.powheg import is_valid_process
+from helpers.powhegconfig import get_energy_from_config
 from helpers.setup_logging import setup_logging
 from helpers.slurm import submit_range, SlurmConfig
 from helpers.modules import find_powheg_releases, get_OSVersion
@@ -20,14 +22,16 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig):
     powheg_version_string = simconfig.powhegversion
     if "VO_ALICE@POWHEG::" in powheg_version_string:
         powheg_version_string = powheg_version_string.replace("VO_ALICE@POWHEG::", "")
-    workdir= os.path.join(workdir, f"POWHEG_{powheg_version_string}")
+    workdir= os.path.join(simconfig.workdir, f"POWHEG_{powheg_version_string}")
     logdir = os.path.join(workdir, "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
     logfile = os.path.join(logdir, "joboutput%a.log")
     executable = os.path.join(repo, "run_powheg_singularity.sh")
-    runcmd = f"{executable} {batchconfig.cluster} {repo} {workdir} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot} {simconfig.gridrepository} {simconfig.nevents}"
-    jobname = f"pjj13T_{simconfig.powheginput}"
+    energytag = "%.1fT" %(get_energy_from_config(simconfig.powheginput)/1000)
+    logging.info("Running simulation for energy %s", energytag)
+    runcmd = f"{executable} {batchconfig.cluster} {repo} {workdir} {simconfig.process} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot} {simconfig.gridrepository} {simconfig.nevents}"
+    jobname = f"pp_{simconfig.process}_{energytag}"
     if batchconfig.cluster == "CADES" or batchconfig.cluster == "CORI":
         runcmd = create_containerwrapper(runcmd, workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion))
     logging.debug("Running on hosts: %s", runcmd)
@@ -53,6 +57,7 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--version", metavar="VERSION", type=str, default="all", help="POWEHG version")
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="Partition")
     parser.add_argument("-g", "--grids", metavar="GRIDS", type=str, default="NONE", help="Old grids (default: NONE")
+    parser.add_argument("--process", metavar="PROCESS", type=str, default="dijet", help="Process (default: dijet)")
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
@@ -63,11 +68,17 @@ if __name__ == "__main__":
     logging.info("Submitting for cluster %s", cluster)
     partition = args.partition if args.partition != "default" else get_default_partition(cluster)
 
+    if not is_valid_process(args.process):
+        logging.error("Process \"%s\" not valid", args.process)
+        sys.exit(1)
+
     simconfig = SimConfig()
     simconfig.workdir = args.workdir
     simconfig.gridrepository = args.grids
-    simconfig.events = args.events
+    simconfig.nevents = args.events
     simconfig.powheginput = args.input
+    simconfig.minslot = args.minslot
+    simconfig.process = args.process
 
     batchconfig = SlurmConfig()
     batchconfig.cluster = cluster
