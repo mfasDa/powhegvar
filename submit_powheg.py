@@ -65,6 +65,9 @@ if __name__ == "__main__":
     setup_logging(args.debug)
   
     cluster = get_cluster()
+    if cluster == None:
+        logging.error("Failed to detect computing cluster")
+        sys.exit(1)
     logging.info("Submitting for cluster %s", cluster)
     partition = args.partition if args.partition != "default" else get_default_partition(cluster)
 

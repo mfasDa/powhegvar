@@ -1,15 +1,19 @@
 #! /usr/bin/env python
 
 import socket
+import os
 
 def get_cluster():
-    hostname = socket.gethostname()
-    if "PERLMUTTER" in hostname:
-        return "PERLMUTTER"
-    elif "or" in hostname:
-        return "CADES"
-    elif "pc" in hostname:
-        return "B587"
+    nersc_host = os.getenv("NERSC_HOST")
+    if nersc_host != None and  len(nersc_host):
+        if nersc_host == "perlmutter":
+            return "PERLMUTTER"
+    else:
+        hostname = socket.gethostname()
+        if "or" in hostname:
+            return "CADES"
+        elif "pc" in hostname:
+            return "B587"
 
 def get_default_partition(cluster: str):
     if cluster == "CADES":
