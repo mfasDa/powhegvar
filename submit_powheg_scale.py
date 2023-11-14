@@ -30,7 +30,7 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig) -> int:
     logfile = os.path.join(logdir,logfilebase)
     executable = os.path.join(repo, "run_powheg_singularity_scale.sh")
     runcmd = f"{executable} {batchconfig.cluster} {repo} {simconfig.workdir} {simconfig.process} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot}"
-    if batchconfig.cluster == "CADES" or batchconfig.cluster == "CORI":
+    if batchconfig.cluster == "CADES" or batchconfig.cluster == "PERLMUTTER":
         runcmd = create_containerwrapper(runcmd, simconfig.workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion))
     return submit(runcmd, batchconfig.cluster, jobname, logfile, get_default_partition(batchconfig.cluster) if batchconfig.partition == "default" else partition, batchconfig.njobs, f"{batchconfig.hours}:00:00", f"{batchconfig.memory}G", dependency=batchconfig.dependency)
 

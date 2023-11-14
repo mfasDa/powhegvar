@@ -94,3 +94,4 @@ par_2gsupp 4        ! weighted events.
 
 lhrwgt_id 'main'
 lhrwgt_descr 'main'
+fastbtlb 1

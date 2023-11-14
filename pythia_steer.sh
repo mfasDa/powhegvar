@@ -22,7 +22,7 @@ if [ "$CLUSTER" == "CADES" ]; then
 
     module load PE-gnu
     module load singularity
-elif [ "$CLUSTER"  == "CORI" ]; then
+elif [ "$CLUSTER"  == "PERLMUTTER" ]; then
     module load shifter
     CONTAINERCOMMAND="shifter --module=cvmfs"
 fi

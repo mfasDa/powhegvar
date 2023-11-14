@@ -120,23 +120,23 @@ class SlurmJob:
         if self.__batchconfig.cluster == "CADES":
             submitcmd += " -A birthright" 
         submitcmd += " -N 1 -n 1 -c {}".format(self.__batchconfig.cpus)
-        if self.__batchconfig.cluster == "CORI":
+        if self.__batchconfig.cluster == "PERLMUTTER":
             submitcmd += " --qos={}".format(self.__batchconfig.partition)
         else:
             submitcmd += " --partition {}".format(self.__batchconfig.partition)
         submitcmd += " -J {}".format(self.__batchconfig.jobname)
         submitcmd += " -o {}".format(self.__batchconfig.logfile)
-        if self.__batchconfig.cluster == "CADES" or self.__batchconfig.cluster == "CORI":
+        if self.__batchconfig.cluster == "CADES" or self.__batchconfig.cluster == "PERLMUTTER":
             submitcmd += " --time={:02d}:00:00".format(self.__batchconfig.hours)
             submitcmd += " --mem={}G".format(self.__batchconfig.memory)
         if self.__batchconfig.dependency > -1:
             submitcmd += " -d {}".format(self.__batchconfig.dependency)
         if len(self.__batchconfig.environment):
             submitcmd += "export={}".format(self.__batchconfig.environment)
-        if self.__batchconfig.cluster == "CORI":
-            submitcmd += " --constraint=haswell"
+        if self.__batchconfig.cluster == "PERLMUTTER":
+            submitcmd += " --constraint=cpu"
             submitcmd += " --licenses=cvmfs,cfs"
-            submitcmd += " --image=docker:mfasel/cc7-alice:latest"
+            submitcmd += " --image=docker:mfasel/cc8-alice:latest"
         if self.__batchconfig.njobs > 1:
             submitcmd += " --array=0-{}".format(self.__batchconfig.njobs-1)
         return submitcmd
@@ -159,23 +159,23 @@ def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str
     if cluster == "CADES":
         submitcmd += " -A birthright" 
     submitcmd += " -N 1 -n 1 -c {}".format(cpus)
-    if cluster == "CORI":
+    if cluster == "PERLMUTTER":
         submitcmd += " --qos={}".format(partition)
     else:
         submitcmd += " --partition {}".format(partition)
     submitcmd += " -J {}".format(jobname)
     submitcmd += " -o {}".format(logfile)
-    if cluster == "CADES" or cluster == "CORI":
+    if cluster == "CADES" or cluster == "PERLMUTTER":
         submitcmd += " --time={}".format(timelimit)
         submitcmd += " --mem={}".format(memory)
     if dependency > -1:
         submitcmd += " -d {}".format(dependency)
     if len(environment):
         submitcmd += "export={}".format(environment)
-    if cluster == "CORI":
-        submitcmd += " --constraint=haswell"
+    if cluster == "PERLMUTTER":
+        submitcmd += " --constraint=cpu"
         submitcmd += " --licenses=cvmfs,cfs"
-        submitcmd += " --image=docker:mfasel/cc7-alice:latest"
+        submitcmd += " --image=docker:mfasel/cc8-alice:latest"
     return submitcmd
 
 def submit(command: str, cluster: str, jobname: str, logfile: str, partition: str, arraysize: int = 0, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1, envrionment: str = "") -> int:

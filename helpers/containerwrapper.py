@@ -25,8 +25,8 @@ def create_containerwrapper(runcommand: str, workdir: str, cluster: str, osversi
             containerwriter.write("module load singularity\n")
             containerwriter.write("export SINGULARITYENV_SLOT=$SLURM_ARRAY_TASK_ID\n")
             containerwriter.write(f"{containercommand}\n")
-        elif cluster == "CORI":
-            containercommand = f"shifter --module=cvmfs -e SLOT=SLOT=$SLURM_ARRAY_TASK_ID {runcommand}"
+        elif cluster == "PERLMUTTER":
+            containercommand = f"shifter --clearenv --module=cvmfs -e SLOT=$SLURM_ARRAY_TASK_ID {runcommand}"
             containerwriter.write(f"{containercommand}\n")
         containerwriter.close()
     return containerwrapper

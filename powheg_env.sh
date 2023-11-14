@@ -22,7 +22,7 @@ if [ "$CLUSTER" == "CADES" ]; then
         module use $SIMSOFT/Modules/
         module load POWHEG/$POWHEG_VERSION
     fi
-elif [ "$CLUSTER" == "CORI" ]; then
+elif [ "$CLUSTER" == "PERLMUTTER" ]; then
     source /usr/share/Modules/init/bash
     MYHOME=$HOME
     if [ "x(echo $POWHEG_VERSION | grep VO_ALICE)" != "x" ]; then

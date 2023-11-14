@@ -32,7 +32,7 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig):
     logging.info("Running simulation for energy %s", energytag)
     runcmd = f"{executable} {batchconfig.cluster} {repo} {workdir} {simconfig.process} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot} {simconfig.gridrepository} {simconfig.nevents}"
     jobname = f"pp_{simconfig.process}_{energytag}"
-    if batchconfig.cluster == "CADES" or batchconfig.cluster == "CORI":
+    if batchconfig.cluster == "CADES" or batchconfig.cluster == "PERLMUTTER":
         runcmd = create_containerwrapper(runcmd, workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion))
     logging.debug("Running on hosts: %s", runcmd)
     return submit_range(runcmd, batchconfig.cluster, jobname, logfile, get_default_partition(batchconfig.cluster) if batchconfig.partition == "default" else batchconfig.partition, {"first": 0, "last": batchconfig.njobs-1}, "{}:00:00".format(batchconfig.hours), "{}G".format(batchconfig.memory))

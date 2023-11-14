@@ -31,7 +31,7 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig):
     executable = os.path.join(repo, "run_powheg_singularity_pdf.sh")
     runcmd = f"{executable} {batchconfig.cluster} {repo} {simconfig.workdir} {simconfig.process} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot} {simconfig.minpdf} {simconfig.maxpdf} {simconfig.minID}"
     logging.debug("Launching: %s", runcmd)
-    if batchconfig.cluster == "CADES" or batchconfig.cluster == "CORI":
+    if batchconfig.cluster == "CADES" or batchconfig.cluster == "PERLMUTTER":
         runcmd = create_containerwrapper(runcmd, simconfig.workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion))
     return submit(runcmd, batchconfig.cluster, jobname, logfile, get_default_partition(batchconfig.cluster) if batchconfig.partition == "default" else batchconfig.partition, batchconfig.njobs, f"{batchconfig.hours}:00:00", f"{batchconfig.memory}G", dependency=batchconfig.dependency)
 
