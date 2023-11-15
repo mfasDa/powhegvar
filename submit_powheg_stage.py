@@ -90,7 +90,7 @@ class MultiStageJob:
         if len(timelimit):
             timelimit =  self.__config.timelimit()
         self.__jobidPrepare = submit(self.__prepare_command(), self.__config.cluster(), jobname_prepare, logfile_prepare, self.__config.queue(), 1, "00:10:00", "2G", self.__dependency)
-        self.__jobid = submit(self.__build_command(powheg_version), self.__config.cluster(), jobname, logfile, self.__config.queue(), 1 if self.__stage == 3 else self.__slots, timelimit, self.__config.memory(), self.__jobidPrepare)
+        self.__jobid = submit(self.__build_command(powheg_version), self.__config.cluster(), jobname, logfile, self.__config.queue(), self.__slots, timelimit, self.__config.memory(), self.__jobidPrepare)
     
 class StageConfiguration:
 
