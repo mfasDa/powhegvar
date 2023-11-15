@@ -135,7 +135,7 @@ class SlurmJob:
             submitcmd += "export={}".format(self.__batchconfig.environment)
         if self.__batchconfig.cluster == "PERLMUTTER":
             submitcmd += " --constraint=cpu"
-            submitcmd += " --licenses=cvmfs,cfs"
+            submitcmd += " --licenses=cfs,scratch"
             submitcmd += " --image=docker:mfasel/cc8-alice:latest"
         if self.__batchconfig.njobs > 1:
             submitcmd += " --array=0-{}".format(self.__batchconfig.njobs-1)
@@ -174,7 +174,7 @@ def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str
         submitcmd += "export={}".format(environment)
     if cluster == "PERLMUTTER":
         submitcmd += " --constraint=cpu"
-        submitcmd += " --licenses=cvmfs,cfs"
+        submitcmd += " --licenses=cfs,scratch"
         submitcmd += " --image=docker:mfasel/cc8-alice:latest"
     return submitcmd
 

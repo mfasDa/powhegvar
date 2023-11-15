@@ -34,6 +34,10 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig):
     jobname = f"pp_{simconfig.process}_{energytag}"
     if batchconfig.cluster == "CADES" or batchconfig.cluster == "PERLMUTTER":
         runcmd = create_containerwrapper(runcmd, workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion))
+    elif batchconfig.cluster == "B587" and "VO_ALICE" in simconfig.powhegversion:
+        # needs container also on the 587 cluster for POWHEG versions from cvmfs
+        # will use the container from ALICE, so the OS version does not really matter
+        runcmd = create_containerwrapper(runcmd, workdir, batchconfig.cluster, "CentOS8")
     logging.debug("Running on hosts: %s", runcmd)
     return submit_range(runcmd, batchconfig.cluster, jobname, logfile, get_default_partition(batchconfig.cluster) if batchconfig.partition == "default" else batchconfig.partition, {"first": 0, "last": batchconfig.njobs-1}, "{}:00:00".format(batchconfig.hours), "{}G".format(batchconfig.memory))
 

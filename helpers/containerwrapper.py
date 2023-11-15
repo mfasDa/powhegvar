@@ -26,7 +26,16 @@ def create_containerwrapper(runcommand: str, workdir: str, cluster: str, osversi
             containerwriter.write("export SINGULARITYENV_SLOT=$SLURM_ARRAY_TASK_ID\n")
             containerwriter.write(f"{containercommand}\n")
         elif cluster == "PERLMUTTER":
-            containercommand = f"shifter --clearenv --module=cvmfs -e SLOT=$SLURM_ARRAY_TASK_ID {runcommand}"
+            containercommand = f"shifter --clearenv --module=cvmfs -e SLOT=$SLURM_ARRAY_TASK_ID -e HOME=$HOME {runcommand}"
+            containerwriter.write(f"{containercommand}\n")
+        elif cluster == "B587":
+            containerrepo = "/cvmfs/alice.cern.ch/containers/fs/singularity"
+            containertype = "rel8-alice-20220503"
+            singularity_app="/cvmfs/alice.cern.ch/containers/bin/apptainer/current/bin/apptainer"
+            image = os.path.join(containerrepo, containertype)
+            binds = "-B /cvmfs:/cvmfs-B /software:/software -B /alf:/alf"
+            containercommand = f"{singularity_app} exec -C {binds} {image} {runcommand}"
+            containerwriter.write("export SINGULARITYENV_SLOT=$SLURM_ARRAY_TASK_ID\n")
             containerwriter.write(f"{containercommand}\n")
         containerwriter.close()
     return containerwrapper
