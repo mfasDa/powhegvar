@@ -30,6 +30,6 @@ if __name__ == "__main__":
         logging.error("Working directory %s doesn't exist", args.workdir)
         sys.exit(1)    
     if args.slot > -1:
-        submit_check_slot(cluster, repo, args.workdir, args.slot, partition, -1)
+        submit_check_slot(cluster, repo, args.workdir, args.slot, partition, [])
     else:
         submit_checks(cluster, repo, args.workdir, partition, -1, False if args.single else True, args.final)

@@ -3,6 +3,7 @@ import logging
 import os
 import random
 
+
 def get_valid_processes() -> list:
     return ["dijet", "directphoton", "hvq", "W", "Z"]
 

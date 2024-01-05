@@ -103,6 +103,19 @@ class SimConfig:
     gridrepository = property(fget=get_gridrepository, fset=set_gridrepository)
     process = property(fget=get_process, fset=set_process)
 
+    def print(self):
+        print(f"Workdir:             {self.__workdir}")
+        print(f"POWHEG version:      {self.__powhegversion}")
+        print(f"POWHEG input:        {self.__powheginput}")
+        print(f"Number of events:    {self.__nevents}")
+        print(f"Process:             {self.__process}")
+        print(f"Grid repository:     {self.__gridrepository}")
+        print(f"Min. ID:             {self.__minID}")
+        print(f"Min. Slot:           {self.__minslot}")
+        print(f"Min. PDF:            {self.__minpdf}")
+        print(f"Max. PDF:            {self.__maxpdf}")
+        print("Scale reweight:      %s" %("Yes" if self.__scalereweight else "No"))
+
 def get_batch_executable(config: SimConfig) -> str:
     if config.is_scalereweight():
         return "run_powheg_singularity_pdf.sh"

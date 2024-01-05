@@ -17,7 +17,7 @@ from helpers.simconfig import SimConfig
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig):
+def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig, singleslot: bool = False):
     logging.info("Submitting POWHEG release %s", simconfig.powhegversion)
     powheg_version_string = simconfig.powhegversion
     if "VO_ALICE@POWHEG::" in powheg_version_string:
@@ -26,7 +26,11 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig):
     logdir = os.path.join(workdir, "logs")
     if not os.path.exists(logdir):
         os.makedirs(logdir, 0o755)
-    logfile = os.path.join(logdir, "joboutput%a.log")
+    logfile = ""
+    if singleslot:
+        logfile = os.path.join(logdir, f"joboutput{simconfig.minslot}.log")
+    else:
+        logfile = os.path.join(logdir, "joboutput%a.log")
     executable = os.path.join(repo, "run_powheg_singularity.sh")
     energytag = "%.1fT" %(get_energy_from_config(simconfig.powheginput)/1000)
     logging.info("Running simulation for energy %s", energytag)
@@ -118,5 +122,5 @@ if __name__ == "__main__":
 
         # submit checking job
         # must run as extra job, not guarenteed that the production job finished
-        submit_checks(cluster, repo, build_workdir_for_pwhg(args.workdir, pwhg), args.partition, pwhgjob) 
+        submit_checks(cluster, repo, build_workdir_for_pwhg(args.workdir, pwhg), args.partition, [pwhgjob]) 
 	

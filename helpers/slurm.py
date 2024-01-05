@@ -13,7 +13,7 @@ class SlurmConfig:
         self.__environment = ""
         self.__cpus = 1
         self.__njobs = 1
-        self.__dependency = -1
+        self.__dependency = []
         self.__hours = 10
         self.__memory = 4
 
@@ -38,7 +38,7 @@ class SlurmConfig:
     def set_cpus(self, cpus: int):
         self.__cpus = cpus
 
-    def set_dependency(self, dependency: int):
+    def set_dependency(self, dependency: list):
         self.__dependency = dependency
 
     def set_hours(self, hours: int):
@@ -68,7 +68,7 @@ class SlurmConfig:
     def get_cpus(self) -> int:
         return self.__cpus
 
-    def get_dependency(self) -> int:
+    def get_dependency(self) -> list:
         return self.__dependency
 
     def get_hours(self) -> int:
@@ -129,8 +129,13 @@ class SlurmJob:
         if self.__batchconfig.cluster == "CADES" or self.__batchconfig.cluster == "PERLMUTTER":
             submitcmd += " --time={:02d}:00:00".format(self.__batchconfig.hours)
             submitcmd += " --mem={}G".format(self.__batchconfig.memory)
-        if self.__batchconfig.dependency > -1:
-            submitcmd += " -d {}".format(self.__batchconfig.dependency)
+        if len(self.__batchconfig.dependency):
+            dependencystring = ""
+            for dep in self.__batchconfig.dependency:
+                if len(dependencystring):
+                    dependencystring += ','
+                dependencystring += f"{dep}"
+            submitcmd += f" -d {dependencystring}"
         if len(self.__batchconfig.environment):
             submitcmd += "export={}".format(self.__batchconfig.environment)
         if self.__batchconfig.cluster == "PERLMUTTER":
@@ -153,7 +158,7 @@ class SlurmJob:
     runcmd = property(fget=get_runcmd, fset=set_runcmd)
     config = property(fget=get_config, fset=set_config)
 
-def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1, environment: str = "") -> str:
+def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str, timelimit: str = "10:00:00", memory: str = "4G", dependency: list = [], environment: str = "") -> str:
     logging.info("Using logfile: %s", logfile)
     submitcmd = "sbatch "
     if cluster == "CADES":
@@ -168,8 +173,13 @@ def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str
     if cluster == "CADES" or cluster == "PERLMUTTER":
         submitcmd += " --time={}".format(timelimit)
         submitcmd += " --mem={}".format(memory)
-    if dependency > -1:
-        submitcmd += " -d {}".format(dependency)
+    if len(dependency):
+        dependencystring = ""
+        for dep in dependency:
+            if len(dependencystring):
+                dependencystring += ','
+            dependencystring += f"{dep}"
+        submitcmd += f" -d {dependencystring}"
     if len(environment):
         submitcmd += "export={}".format(environment)
     if cluster == "PERLMUTTER":
@@ -178,7 +188,7 @@ def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str
         submitcmd += " --image=docker:mfasel/cc8-alice:latest"
     return submitcmd
 
-def submit(command: str, cluster: str, jobname: str, logfile: str, partition: str, arraysize: int = 0, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1, envrionment: str = "") -> int:
+def submit(command: str, cluster: str, jobname: str, logfile: str, partition: str, arraysize: int = 0, timelimit: str = "10:00:00", memory: str = "4G", dependency: list = [], envrionment: str = "") -> int:
     submitcmd = ncorejob(cluster, 1, jobname, logfile, partition, timelimit, memory, dependency)
     if arraysize > 0:
         submitcmd += " --array=0-{}".format(arraysize-1)
@@ -190,7 +200,7 @@ def submit(command: str, cluster: str, jobname: str, logfile: str, partition: st
     jobid = int(toks[len(toks)-1])
     return jobid
 
-def submit_range(command: str, cluster: str, jobname: str, logfile: str, partition: str, arrayrange: dict, timelimit: str = "10:00:00", memory: str = "4G", dependency: int = -1, nevironment: str = "") -> int:
+def submit_range(command: str, cluster: str, jobname: str, logfile: str, partition: str, arrayrange: dict, timelimit: str = "10:00:00", memory: str = "4G", dependency: list = [], nevironment: str = "") -> int:
     submitcmd = ncorejob(cluster, 1, jobname, logfile, partition, timelimit, memory, dependency)
     submitcmd += " --array={}-{}".format(arrayrange["first"], arrayrange["last"])
     submitcmd += " {}".format(command)
