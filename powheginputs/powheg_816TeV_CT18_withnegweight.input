@@ -18,11 +18,11 @@ bornsuppfact 90d0   ! (default 0d0) Mass parameter for Born suppression factor.
 ! 10050 cteq6m
 ! 10550 cteq66
 ! 13100 CT14nlo
-! 331700 NNPDF4.0 alpha_s = 0.118
+! 14400 CT18nlo
 ! 103100 nCTEQ15FullNuc_208_82
 ! 901300 EPPS16nlo_CT14nlo_Pb208
-lhans1  13100      ! pdf set for hadron 1 (LHA numbering)
-lhans2  13100      ! pdf set for hadron 2 (LHA numbering)	
+lhans1  14400      ! pdf set for hadron 1 (LHA numbering)
+lhans2  14400      ! pdf set for hadron 2 (LHA numbering)	
 
 ! To be set only if using different pdf sets for the two incoming hadrons
 ! QCDLambda5  0.25    ! for not equal pdf sets 
