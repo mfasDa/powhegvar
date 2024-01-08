@@ -23,7 +23,7 @@ def parse_powheg_config(workdir: str, slot: int) ->SimConfig:
         logging.error("Logfile for slot %d does not exist, cannot create POWHEG config")
         return None
     config = SimConfig()
-    config.workdir = workdir
+    config.workdir = os.path.dirname(workdir)
     config.minslot = slot
     with open(logfile, "r") as logreader:
         for line in logreader:
@@ -52,13 +52,8 @@ def parse_powheg_config(workdir: str, slot: int) ->SimConfig:
                         indextoken += 1
     return config
 
-def submit_slot(workdir: str, slot: int, slurparams: SlurmConfig):
+def submit_slot(workdir: str, slot: int, simparams: SimConfig, slurparams: SlurmConfig):
     logging.info("Resubmitting slot: %d", slot)
-    simparams = parse_powheg_config(workdir, slot)
-    if not simparams:
-        logging.error("Failed to parse simulation params for slot: %d", slot)
-        return
-    simparams.print()
     clean_slotdir(os.path.join(workdir, "%04d" %slot))
     return submit_job(simparams, slurparams, True)
 
@@ -96,6 +91,12 @@ if __name__ == "__main__":
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
     parser.add_argument("--debug", action="store_true", help="debug mode")
     parser.add_argument("--test", action="store_true", help="test mode")
+
+    parser.add_argument("-i", "--input", metavar="POWHEGINPUT", type=str, default="default", help="POWHEG input")
+    parser.add_argument("-g", "--grids", metavar="GRIDS", type=str, default="default", help="Old grids (default: NONE")
+    parser.add_argument("-v", "--version", metavar="VERSION", type=str, default="default", help="POWEHG version")
+    parser.add_argument("-e", "--events", metavar="EVENTS", type=int, default=0, help="Number of events (default: 0:=Default number of events in powheg.input)")
+    parser.add_argument("--process", metavar="PROCESS", type=str, default="default", help="Process (default: dijet)")
     args = parser.parse_args()
     setup_logging(args.debug)
 
@@ -126,13 +127,27 @@ if __name__ == "__main__":
 
     jobids_check = []
     for slot in slots:
+        simconfig = parse_powheg_config(workdir, slot)
+        if not simconfig:
+            logging.error("Failed to parse simulation params for slot: %d", slot)
+            continue
+        if args.events != 0:
+            simconfig.nevents = args.events
+        if args.process != "default":
+            simconfig.process = args.process
+        if args.grids != "default":
+            simconfig.gridrepository = args.grids
+        if args.input != "default":
+            simconfig.powheginput = args.input
+        if args.version != "default":
+            simconfig.powhegversion = args.version
+        simconfig.print()
         if not args.test:
-            pwhgjob = submit_slot(workdir, slot, batchconfig)
+            pwhgjob = submit_slot(workdir, slot, simconfig, batchconfig)
             checkjob = submit_check_slot(cluster, repo, workdir, slot, partition, pwhgjob)
             jobids_check.append(checkjob)
         else:
             # test mode: try only parsing the simulation configuration
             simconfig = parse_powheg_config(workdir, slot)
-            simconfig.print()
     if len(jobids_check):
         submit_checks(cluster, repo, workdir, partition, jobids_check, False, True)

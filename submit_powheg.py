@@ -14,8 +14,30 @@ from helpers.setup_logging import setup_logging
 from helpers.slurm import submit_range, SlurmConfig
 from helpers.modules import find_powheg_releases, get_OSVersion
 from helpers.simconfig import SimConfig
+from helpers.workdir import find_index_of_input_file_range
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
+
+def make_powhegrunner(config: SimConfig) -> str:
+    executable = f"{repo}/powheg_runner.py"
+    workdir = os.path.join(simconfig.workdir, f"POWHEG_{simconfig.powhegversion}")
+    cmd = f"{executable} {workdir} {config.powheginput} -t {config.process}"
+    if not config.is_scalereweight() and not config.is_pdfreweight() and config.nevents > 0:
+        cmd += f" -e {config.nevents}"
+    if config.minslot > 0:
+        cmd += f" --slotoffset {config.minslot}"
+    if len(config.gridrepository):
+        cmd += f" -g {config.gridrepository}"
+    if config.is_scalereweight():
+        cmd += " -s --minid 0"
+    if config.is_pdfreweight():
+        cmd += f" --minpdf {config.minpdf} --maxpdf {config.maxpdf} --minid {config.minID}"
+    logging.debug("Running POWHEG command: %s", cmd)
+    return cmd
+
+def configure_env(cluster: str, powhegversion: str) -> str:
+    executable = f"{repo}/powheg_run_in_env.sh"
+    return f"{executable} {repo} {cluster} {powhegversion}"
 
 def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig, singleslot: bool = False):
     logging.info("Submitting POWHEG release %s", simconfig.powhegversion)
@@ -31,17 +53,18 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig, singleslot: bool 
         logfile = os.path.join(logdir, f"joboutput{simconfig.minslot}.log")
     else:
         logfile = os.path.join(logdir, "joboutput%a.log")
-    executable = os.path.join(repo, "run_powheg_singularity.sh")
     energytag = "%.1fT" %(get_energy_from_config(simconfig.powheginput)/1000)
     logging.info("Running simulation for energy %s", energytag)
-    runcmd = f"{executable} {batchconfig.cluster} {repo} {workdir} {simconfig.process} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot} {simconfig.gridrepository} {simconfig.nevents}"
+    runcmd =  "%s %s" %(configure_env(batchconfig.cluster, simconfig.powhegversion), make_powhegrunner(simconfig))
+    #executable = os.path.join(repo, "run_powheg_singularity.sh")
+    #f"{executable} {batchconfig.cluster} {repo} {workdir} {simconfig.process} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot} {simconfig.gridrepository} {simconfig.nevents}"
     jobname = f"pp_{simconfig.process}_{energytag}"
     if batchconfig.cluster == "CADES" or batchconfig.cluster == "PERLMUTTER":
-        runcmd = create_containerwrapper(runcmd, workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion))
+        runcmd = "%s %s" %(create_containerwrapper(workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion)), runcmd)
     elif batchconfig.cluster == "B587" and "VO_ALICE" in simconfig.powhegversion:
         # needs container also on the 587 cluster for POWHEG versions from cvmfs
         # will use the container from ALICE, so the OS version does not really matter
-        runcmd = create_containerwrapper(runcmd, workdir, batchconfig.cluster, "CentOS8")
+        runcmd = "%s %s" %(create_containerwrapper(workdir, batchconfig.cluster, "CentOS8"), runcmd)
     logging.debug("Running on hosts: %s", runcmd)
     return submit_range(runcmd, batchconfig.cluster, jobname, logfile, get_default_partition(batchconfig.cluster) if batchconfig.partition == "default" else batchconfig.partition, {"first": 0, "last": batchconfig.njobs-1}, "{}:00:00".format(batchconfig.hours), "{}G".format(batchconfig.memory))
 
@@ -60,12 +83,16 @@ if __name__ == "__main__":
     parser.add_argument("workdir", metavar="WORKDIR", type=str, help="Working directory")
     parser.add_argument("-i", "--input", metavar="POWHEGINPUT", type=str, default=os.path.join(repo, "powheginputs", "powheg_13TeV_CT14_default.input"), help="POWHEG input")
     parser.add_argument("-e", "--events", metavar="EVENTS", type=int, default=0, help="Number of events (default: 0:=Default number of events in powheg.input)")
-    parser.add_argument("-n", "--njobs", metavar="NJOBS", type=int, default=200, help="Number of slots")
+    parser.add_argument("-n", "--njobs", metavar="NJOBS", type=int, default=-1, help="Number of slots")
     parser.add_argument("-m", "--minslot", metavar="MINSLOT", type=int, default=0, help="Min. slot ID")
     parser.add_argument("-v", "--version", metavar="VERSION", type=str, default="all", help="POWEHG version")
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="Partition")
     parser.add_argument("-g", "--grids", metavar="GRIDS", type=str, default="NONE", help="Old grids (default: NONE")
     parser.add_argument("--process", metavar="PROCESS", type=str, default="dijet", help="Process (default: dijet)")
+    parser.add_argument("--scalereweight", action="store_true", help="Run scale reweight")
+    parser.add_argument("--minpdf", metavar="MINPDF", type=int, default=-1, help="PDF reweight min. PDF")
+    parser.add_argument("--maxpdf", metavar="MAXPDF", type=int, default=-1, help="PDF reweight max. PDF")
+    parser.add_argument("--minweightid", metavar="MINWEIGHTID", type=int, default=0, help="PDF reweight min weight ID")
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
@@ -88,13 +115,38 @@ if __name__ == "__main__":
     simconfig.gridrepository = args.grids
     simconfig.nevents = args.events
     simconfig.powheginput = args.input
-    simconfig.minslot = args.minslot
+
     simconfig.process = args.process
+    if args.scalereweight:
+        simconfig.set_scalereweight(True)
+    if args.minpdf > -1 and args.maxpdf > -1:
+        simconfig.minpdf = args.minpdf
+        simconfig.maxpdf = args.maxpdf
+        simconfig.minID = args.minweightid
+
+    njobs = args.njobs
+    minslot = args.minslot
+    if simconfig.is_scalereweight() or simconfig.is_pdfreweight():
+        if njobs == -1:
+            # auto-determine number of slots
+            indexmin, indexmax = find_index_of_input_file_range(args.workdir)
+            logging.debug(f"Min. index: {indexmin}, max index: {indexmax}")
+            if indexmin == -1 or indexmax == -1:
+                logging.error("Didn't find slot dirs with pwgevents.lhe in %s", args.workdir)
+                sys.exit(1)
+            minslot = indexmin
+            njobs = indexmax - indexmin + 1
+    else:
+        if njobs == -1:
+            logging.error("Number of jobs must be provided")
+            sys.exit(1)
+
+    simconfig.minslot = minslot
 
     batchconfig = SlurmConfig()
     batchconfig.cluster = cluster
     batchconfig.partition = partition
-    batchconfig.njobs = args.njobs
+    batchconfig.njobs = njobs
     batchconfig.memory = args.mem
     batchconfig.hours = args.hours
 
