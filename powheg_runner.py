@@ -404,6 +404,7 @@ if __name__ == "__main__":
     parser.add_argument("--maxpdf", metavar="MAXPDF", type=int, default=-1, help="Max. pdf (in case of PDF reweighting mode)")
     parser.add_argument("--minid", metavar="MINID", type=int, default=-1, help="Min. weight ID (in case of scale or PDF reweighting)")
     parser.add_argument("--slot", metavar="SLOT", type=int, default=-1, help="Slot (in case of multi-processing)")
+    parser.add_argument("--slotoffset", metavar="SLOTOFFSET", type=int, default=0, help="Offset in slot index")
     parser.add_argument("-s", "--scalereweight", action="store_true", help="Run scale reweighting mode")
     parser.add_argument("-d", "--debug", action="store_true", help="Run in debug mode")
     args = parser.parse_args()
@@ -422,9 +423,16 @@ if __name__ == "__main__":
     workdir = os.path.abspath(args.workdir)
     workdirmessage = f"Using working directory: {workdir}"
     slot = args.slot
-    if slot > -1:
-        workdir = os.path.join(workdir, "%04d" %slot)
-        workdirmessage = f"Using working directory: {workdir} (slot {slot})"
+    if slot < 0:
+        # try to find slot index from environment variable "SLOT"
+        envslot = os.getenv("SLOT")
+        if envslot:
+            slot = int(envslot)
+            slot += args.slotoffset 
+            workdir = os.path.join(workdir, "%04d" %slot)
+            workdirmessage = f"Using working directory: {workdir} (slot {slot})"
+        else:
+            workdirmessage = f"Using working directory: {workdir} (sequential mode)"
     logging.info(workdirmessage)
 
     processor = POWHEG_runner(workdir, os.path.abspath(args.input))

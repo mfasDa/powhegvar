@@ -31,11 +31,11 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig) -> int:
     executable = os.path.join(repo, "run_powheg_singularity_scale.sh")
     runcmd = f"{executable} {batchconfig.cluster} {repo} {simconfig.workdir} {simconfig.process} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot}"
     if batchconfig.cluster == "CADES" or batchconfig.cluster == "PERLMUTTER":
-        runcmd = create_containerwrapper(runcmd, simconfig.workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion))
+        runcmd = "%s %s" %(create_containerwrapper(simconfig.workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion)), runcmd)
     elif batchconfig.cluster == "B587" and "VO_ALICE" in simconfig.powhegversion:
         # needs container also on the 587 cluster for POWHEG versions from cvmfs
         # will use the container from ALICE, so the OS version does not really matter
-        runcmd = create_containerwrapper(runcmd, simconfig.workdir, batchconfig.cluster, "CentOS8")
+        runcmd = "%s %s" %(create_containerwrapper(simconfig.workdir, batchconfig.cluster, "CentOS8"), runcmd)
     return submit(runcmd, batchconfig.cluster, jobname, logfile, get_default_partition(batchconfig.cluster) if batchconfig.partition == "default" else partition, batchconfig.njobs, f"{batchconfig.hours}:00:00", f"{batchconfig.memory}G", dependency=batchconfig.dependency)
 
 if __name__ == "__main__":
@@ -109,7 +109,7 @@ if __name__ == "__main__":
         # submit checking job
         # must run as extra job, not guarenteed that the production job finished
         # only in parallel mode
-        submit_checks(cluster, repo, args.workdir, args.partition, pwhgjob)
+        submit_checks(cluster, repo, args.workdir, args.partition, [pwhgjob])
     else:
         # submit single checking job on missing slot
         # slot mode
