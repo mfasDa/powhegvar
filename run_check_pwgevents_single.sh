@@ -3,6 +3,8 @@
 SOURCEDIR=$1
 WORKDIR=$2
 
+export PYTHONPATH=$PYTHONPATH:$SOURCEDIR
+
 SLOTS=($(ls -1 $WORKDIR | grep -E "[0-9]+"))
 
 for SLOTDIR in ${SLOTS[@]}; do
