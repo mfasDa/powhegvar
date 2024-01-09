@@ -32,8 +32,8 @@ def parse_powheg_config(workdir: str, slot: int) ->SimConfig:
                 line = line.replace("Request POWHEG version:", "")
                 config.powhegversion = line.lstrip().rstrip()
                 continue
-            if line.find("Running:") == 0:
-                line = line.replace("Running: ", "")
+            if line.find("Running in environment:") == 0:
+                line = line.replace("Running in environment: ", "")
                 tokens = line.split(" ")
                 indextoken = 2
                 while indextoken < len(tokens):

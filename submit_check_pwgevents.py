@@ -32,4 +32,4 @@ if __name__ == "__main__":
     if args.slot > -1:
         submit_check_slot(cluster, repo, args.workdir, args.slot, partition, [])
     else:
-        submit_checks(cluster, repo, args.workdir, partition, -1, False if args.single else True, args.final)
+        submit_checks(cluster, repo, args.workdir, partition, [], False if args.single else True, args.final)

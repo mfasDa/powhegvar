@@ -20,13 +20,13 @@ repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
 def make_powhegrunner(config: SimConfig) -> str:
     executable = f"{repo}/powheg_runner.py"
-    workdir = os.path.join(simconfig.workdir, f"POWHEG_{simconfig.powhegversion}")
+    workdir = os.path.join(config.workdir, f"POWHEG_{config.powhegversion}")
     cmd = f"{executable} {workdir} {config.powheginput} -t {config.process}"
     if not config.is_scalereweight() and not config.is_pdfreweight() and config.nevents > 0:
         cmd += f" -e {config.nevents}"
     if config.minslot > 0:
         cmd += f" --slotoffset {config.minslot}"
-    if len(config.gridrepository):
+    if len(config.gridrepository) and config.gridrepository != "NONE":
         cmd += f" -g {config.gridrepository}"
     if config.is_scalereweight():
         cmd += " -s --minid 0"
@@ -115,8 +115,8 @@ if __name__ == "__main__":
     simconfig.gridrepository = args.grids
     simconfig.nevents = args.events
     simconfig.powheginput = args.input
-
     simconfig.process = args.process
+    simconfig.powhegversion = args.version
     if args.scalereweight:
         simconfig.set_scalereweight(True)
     if args.minpdf > -1 and args.maxpdf > -1:
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     if simconfig.is_scalereweight() or simconfig.is_pdfreweight():
         if njobs == -1:
             # auto-determine number of slots
-            indexmin, indexmax = find_index_of_input_file_range(args.workdir)
+            indexmin, indexmax = find_index_of_input_file_range(os.path.join(args.workdir, f"POWHEG_{simconfig.powhegversion}"))
             logging.debug(f"Min. index: {indexmin}, max index: {indexmax}")
             if indexmin == -1 or indexmax == -1:
                 logging.error("Didn't find slot dirs with pwgevents.lhe in %s", args.workdir)
@@ -150,12 +150,13 @@ if __name__ == "__main__":
     batchconfig.memory = args.mem
     batchconfig.hours = args.hours
 
-    prepare_outputlocation(args.workdir)	
-    # check if the output location has already POWHEG_events
-    pwgevents = find_pwgevents(args.workdir)
-    if len(pwgevents):
-        logging.error("Working directory not empty, output would be overwritten")
-        sys.exit(1)
+    if not simconfig.is_scalereweight() and not simconfig.is_pdfreweight():
+        prepare_outputlocation(args.workdir)	
+        # check if the output location has already POWHEG_events
+        pwgevents = find_pwgevents(args.workdir)
+        if len(pwgevents):
+            logging.error("Working directory not empty, output would be overwritten")
+            sys.exit(1)
 
     releases = []
     release_all = find_powheg_releases() if cluster == "CADES" else ["default", "FromALICE"]
