@@ -44,13 +44,16 @@ class MultiStageJob:
         self.__config = config
         self.__jobid = -1
         self.__jobidPrepare = -1
-        self.__dependency = -1
+        self.__dependency = []
         self.__stageconfig = "default"
         self.__stageseeds = "default"
 
-    def set_dependency(self, dependency: int):
-        self.__dependency = dependency
+    def add_dependency(self, dependency: int):
+        self.__dependency.append(dependency)
 
+    def set_dependencies(self, dependency: list):
+        self.__dependency = dependency
+        
     def build_stage(self, pwginput: str, nevents: int) -> tuple: 
         if not os.path.exists(self.__workdir):
             os.makedirs(self.__workdir, 0o755)
@@ -90,7 +93,7 @@ class MultiStageJob:
         if len(timelimit):
             timelimit =  self.__config.timelimit()
         self.__jobidPrepare = submit(self.__prepare_command(), self.__config.cluster(), jobname_prepare, logfile_prepare, self.__config.queue(), 1, "00:10:00", "2G", self.__dependency)
-        self.__jobid = submit(self.__build_command(powheg_version), self.__config.cluster(), jobname, logfile, self.__config.queue(), self.__slots, timelimit, self.__config.memory(), self.__jobidPrepare)
+        self.__jobid = submit(self.__build_command(powheg_version), self.__config.cluster(), jobname, logfile, self.__config.queue(), self.__slots, timelimit, self.__config.memory(), [self.__jobidPrepare])
     
 class StageConfiguration:
 
@@ -177,7 +180,7 @@ class StageHandler:
     def submit_stage(self, config: StageConfiguration.Stage, dependency: int = -1) -> int:
         jobdef = MultiStageJob(self.__workdir, config.stageindex, config.xgindex, self.__njobs, self.__batchconfig)
         if dependency >= 0:
-            jobdef.set_dependency(dependency)
+            jobdef.add_dependency(dependency)
         jobdef.build_stage(self.__pwginput, 1)
         jobdef.submit(self.__pwgversion, config.timelimit)
         jobid = jobdef.get_jobid()

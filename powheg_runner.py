@@ -10,9 +10,11 @@ import sys
 import time
 
 from helpers.setup_logging import setup_logging
-from helpers.reweighting import create_config_pdfreweight, create_config_scalereweight, build_weightID_scalereweight, weightID
+from helpers.reweighting import create_config_pdfreweight, create_config_scalereweight, build_weightID_scalereweight, build_weightID_pdfreweight, weightID
 from helpers.events import create_config_nevens
 from helpers.powheg import is_valid_process
+from helpers.pwsemaphore import pwsemaphore, has_semaphore
+from helpers.pwgeventsparser import pwgeventsparser, pwgevents_info
 
 class POWHEG_runner:
 
@@ -115,12 +117,17 @@ class POWHEG_runner:
         logging.info("Workdir %s properly initialized, ready for running POWHEG job ...", self.__workdir)
         if not self.is_reweight():
             if self.__workdir_has_pwgevents():
-                logging.error("pwgevents.lhe already found in working directory %s for non-reweight jon - cannot run ...")
-                return False
+                found_semaphore = has_semaphore(self.workdir)
+                if found_semaphore:
+                    logging.warning("Existing pwgevents.lhe in directory %s incomplete - reprocessing ...", self.workdir)
+                    found_semaphore.remove()
+                    os.remove()
+                else:
+                    logging.error("pwgevents.lhe (complete) already found in working directory %s for non-reweight jon - cannot run ...", self.workdir)
+                    return False
             logging.info("Running standard powheg job")
             self.__run_powhegjob("pwhg.log")
         else:
-            self.__foundweights = self.__inspect_weights(os.path.join(self.__workdir, "pwgevents.lhe"))
             if self.is_scalereweight():
                 self.__run_scalereweight()
             elif self.__run_pdfreweight():
@@ -130,6 +137,7 @@ class POWHEG_runner:
     def __run_scalereweight(self):
         os.chdir(self.__workdir)
         currentid = self.__minid
+        currentpwgevents = pwgevents_info()
         variations = [0.5, 1., 2.]
         for indexMuR in range(0, 3):
             variationMuR = variations[indexMuR]
@@ -142,6 +150,13 @@ class POWHEG_runner:
                 if indexMuR == 1 and indexMuF == 1:
                     logging.info("Skipping default variation muf = mur = 1")
                     continue
+                if self.__workdir_has_pwgevents():
+                    currentpwgevents = self.__decode_pwgfile(os.path.join(self.workdir, "pwgevents.lhe"))
+                foundweight = currentpwgevents.find_weight("{}".format(currentid))
+                if foundweight:
+                    logging.info("Scale variation  mur = %f, muf = %f with weight ID %d already existing, not running again ...", variationMuR, variationMuF, currentid)
+                    currentid += 1
+                    continue 
                 logging.info("Running variation mur = %f, muf = %f", variationMuR, variationMuF)
                 currentWeightID = build_weightID_scalereweight(variationMuF, variationMuR, currentid)
                 if currentWeightID in self.__foundweights:
@@ -160,11 +175,20 @@ class POWHEG_runner:
         os.chdir(self.__workdir)
         currentid = self.__minid
         currentpdf = self.__minpdf
+        currentpwgevents = pwgevents_info()
         while currentpdf <= self.__maxpdf:
             self.__list_workdir()
             if self.__workdir_has_reweightevents():
                 logging.error("pwgevents-reweight.lhe found in workdir %s in weighting mode, removing ...", self.__workdir)
                 os.remove(os.path.join(self.workdir, "pwgevents-reweight.lhe"))
+            if self.__workdir_has_pwgevents():
+                currentpwgevents = self.__decode_pwgfile(os.path.join(self.workdir, "pwgevents.lhe"))
+            foundweight = currentpwgevents.find_weight("{}".format(currentid))
+            if foundweight:
+                logging.info("PDF variation %d with weight ID %d already existing, not running again ...", currentpdf, currentid)
+                currentid += 1
+                currentpdf += 1
+                continue
             logging.info("Running pdf variation %d with weight ID %d", currentpdf, currentid)
             currentWeightID = build_weightID_pdfreweight(currentpdf, currentid)
             if currentWeightID in self.__foundweights:
@@ -186,38 +210,10 @@ class POWHEG_runner:
         self.__set_seed()
         command = f"pwhg_main_{self.__powhegtype} &> {logfile}"
         logging.debug("Running: %s", command)
+        semaphore = pwsemaphore(self.__workdir)
+        semaphore.create()
         subprocess.call(command, shell=True)
-
-    def __inspect_weights(self, pwgevents: str) -> list:
-        foundweights = []
-        with open(pwgevents, "r") as eventreader:
-            initDone = False
-            for line in eventreader:
-                if "</initrwgt>" in line:
-                    break;
-                if "<initrwgt>" in line:
-                    initDone = True
-                    continue
-                if not initDone:
-                    continue
-                if "<weight id=" in line:
-                    # found actual wegiht id
-                    beginTag = line[1:line.find(">")]
-                    endTag = line[line.rfind("<"):].lstrip().rstrip()
-                    content = line[line.find(">")+2:line.rfind("<")-1].lstrip().rstrip()
-                    if endTag != "</weight>":
-                        logging.error("Improper end tag in weight setup - cannot parse")
-                        continue
-                    beginTag = beginTag.replace("weight ", "")
-                    name = ""
-                    for attributes in beginTag.split(" "):
-                        delim = attributes.find("=")
-                        key = attributes[:delim]
-                        value = attributes[delim+1:].replace("'","")
-                        if key == "id":
-                            name = value
-                    foundweights.append(weightID(name=name, title=content))
-        return foundweights
+        semaphore.remove()
 
     def __list_workdir(self):
         content = os.listdir(os.getcwd())
@@ -230,6 +226,11 @@ class POWHEG_runner:
                 first = False
             contentstring += f" {entry}"
         logging.info("Content of workdir: %s", contentstring)
+
+    def __decode_pwgfile(self, pwgfile: str) -> pwgevents_info:
+        decoder = pwgeventsparser(pwgfile)
+        decoder.decode()
+        return decoder.get_eventinfos()
 
     def __get_gridfiles(self):
         return ["pwggrid.dat", "pwgubound.dat", "pwgxgrid.dat"]

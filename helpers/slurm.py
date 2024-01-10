@@ -177,7 +177,7 @@ def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str
         dependencystring = ""
         for dep in dependency:
             if len(dependencystring):
-                dependencystring += ','
+                dependencystring += ':'
             dependencystring += f"{dep}"
         submitcmd += f" -d {dependencystring}"
     if len(environment):
