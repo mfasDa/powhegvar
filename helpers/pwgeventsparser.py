@@ -134,7 +134,7 @@ class pwgevents_info:
         if foundgroup != None:
             foundgroup.add_weight(id, description)
         else:
-            nextgroup = self.weight_group(weightgroup)
+            nextgroup = weight_group(weightgroup)
             nextgroup.add_weight(id, description)
             self.__weightgroups.append(nextgroup)
 

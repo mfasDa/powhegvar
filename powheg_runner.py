@@ -31,6 +31,9 @@ class POWHEG_runner:
         self.__workdirInitialized = False
         self.__powhegtype = ""
         self.__foundweights = []
+        self.__slot = 0
+        self.__stage = 0
+        self.__xgriditer = 0
 
     def set_workdir(self, workdir: str):
         self.__workdir = workdir
@@ -41,6 +44,9 @@ class POWHEG_runner:
     def set_events(self, events: int):
         self.__events = events
 
+    def set_slot(self, slot: int):
+        self.__slot = slot
+
     def set_scalereweight(self, minID: int):
         self.__reweightscale = True
         self.__minid = minID
@@ -50,6 +56,10 @@ class POWHEG_runner:
         self.__minpdf = minpdf
         self.__maxpdf = maxpdf
         self.__minid = minID
+
+    def set_parallelstage(self, stage: int, xgriditer: int):
+        self.__stage = stage
+        self.__xgriditer = xgriditer
 
     def set_gridrepository(self, gridrepository: str):
         self.__gridrepository = gridrepository
@@ -75,6 +85,9 @@ class POWHEG_runner:
     def get_events(self) -> int:
         return self.__events
 
+    def get_slot(self) -> int:
+        return self.__slot
+
     def is_scalereweight(self) -> bool:
         return self.__reweightscale 
 
@@ -99,6 +112,15 @@ class POWHEG_runner:
     def is_powhegtype_set(self) -> bool:
         return len(self.__powhegtype) > 0
 
+    def is_parallelstage(self) -> bool:
+        return self.__stage > 0
+
+    def get_stage_level(self) -> int:
+        return self.__stage
+    
+    def get_xgriditer(self) -> int:
+        return self.__xgriditer
+
     pwginput = property(fget=get_pwginput, fset=set_pwginput)
     workdir = property(fget=get_workdir, fset=set_workdir)
     gridrepository = property(fget=get_gridrepository, fset=set_gridrepository)
@@ -115,7 +137,7 @@ class POWHEG_runner:
         if not self.__workdirInitialized:
             logging.error("Working directory not properly initialized, cannot run")
         logging.info("Workdir %s properly initialized, ready for running POWHEG job ...", self.__workdir)
-        if not self.is_reweight():
+        if not self.is_reweight() and not self.is_parallelstage():
             if self.__workdir_has_pwgevents():
                 found_semaphore = has_semaphore(self.workdir)
                 if found_semaphore:
@@ -127,6 +149,8 @@ class POWHEG_runner:
                     return False
             logging.info("Running standard powheg job")
             self.__run_powhegjob("pwhg.log")
+        elif self.is_parallelstage():
+            self.__run_stage_job()
         else:
             if self.is_scalereweight():
                 self.__run_scalereweight()
@@ -215,6 +239,19 @@ class POWHEG_runner:
         subprocess.call(command, shell=True)
         semaphore.remove()
 
+    def __run_stage_job(self):
+        os.chdir(self.__workdir)
+        logfile = os.path.join(os.getcwd(), "logs", f"runpowheg_stage{self.__stage}")
+        if self.__stage == 1:
+            logfile += f"_xgriditer{self.__xgriditer}"
+        logfile += f"_{self.__slot}.log"
+        command = f"pwhg_main_{self.__powhegtype} << EOF\n"
+        command += f"{self.__slot}\n"
+        command += f"EOF"
+        with open(logfile, "w") as logwriter:
+            subprocess.call(command, shell=True, stdout=logwriter, stderr=subprocess.STDOUT)
+            logwriter.close()
+
     def __list_workdir(self):
         content = os.listdir(os.getcwd())
         first = True
@@ -229,7 +266,7 @@ class POWHEG_runner:
 
     def __decode_pwgfile(self, pwgfile: str) -> pwgevents_info:
         decoder = pwgeventsparser(pwgfile)
-        decoder.decode()
+        decoder.parse()
         return decoder.get_eventinfos()
 
     def __get_gridfiles(self):
@@ -350,6 +387,10 @@ class POWHEG_runner:
             configwriter.close()
 
     def __prepare_workdir(self):
+        if self.is_parallelstage():
+            # Workdir handled outside in parallelstage
+            self.__workdirInitialized = True
+            return
         if not self.__check_settings():
             logging.error("Cannot initialize workdir due to invalid configuration")
             return
@@ -406,6 +447,8 @@ if __name__ == "__main__":
     parser.add_argument("--minid", metavar="MINID", type=int, default=-1, help="Min. weight ID (in case of scale or PDF reweighting)")
     parser.add_argument("--slot", metavar="SLOT", type=int, default=-1, help="Slot (in case of multi-processing)")
     parser.add_argument("--slotoffset", metavar="SLOTOFFSET", type=int, default=0, help="Offset in slot index")
+    parser.add_argument("--stage", metavar="STAGE", type=int, default=0, help="Parallel stage")
+    parser.add_argument("--xgriditer", metavar="XGRIDITER", type=int, default=1, help="xgrid iteration (parallel stage 1)")
     parser.add_argument("-s", "--scalereweight", action="store_true", help="Run scale reweighting mode")
     parser.add_argument("-d", "--debug", action="store_true", help="Run in debug mode")
     args = parser.parse_args()
@@ -430,7 +473,9 @@ if __name__ == "__main__":
         if envslot:
             slot = int(envslot)
             slot += args.slotoffset 
-            workdir = os.path.join(workdir, "%04d" %slot)
+            if args.stage == 0:
+                # do not add slot in case of parallelstage
+                workdir = os.path.join(workdir, "%04d" %slot)
             workdirmessage = f"Using working directory: {workdir} (slot {slot})"
         else:
             workdirmessage = f"Using working directory: {workdir} (sequential mode)"
@@ -438,6 +483,7 @@ if __name__ == "__main__":
 
     processor = POWHEG_runner(workdir, os.path.abspath(args.input))
     processor.set_powhegtype(args.type)
+    processor.set_slot(slot)
     if scalereweight:
         processor.set_scalereweight(args.minid)
     if pdfreweight:
@@ -446,6 +492,8 @@ if __name__ == "__main__":
         processor.set_gridrepository(os.path.abspath(args.gridfiledir))
     if args.events > 0:
         processor.set_events(args.events)
+    if args.stage > 0 and args.stage < 4:
+        processor.set_parallelstage(args.stage, args.xgriditer)
     if not processor.init():
         logging.error("Error during initialization of the POWHEG processor, cannot run the simulation ...")
         sys.exit(3)
