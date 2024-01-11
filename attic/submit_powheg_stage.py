@@ -5,12 +5,11 @@ import logging
 import os
 import sys
 
-from helpers.containerwrapper import create_containerwrapper
 from helpers.setup_logging import setup_logging
 from helpers.slurm import submit
 from helpers.powheg import build_powheg_stage, build_powhegseeds
 from helpers.cluster import get_cluster, get_default_partition
-from helpers.modules import find_powheg_releases, get_OSVersion
+from helpers.modules import find_powheg_releases
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 
@@ -36,8 +35,7 @@ class slurmconfig:
 
 class MultiStageJob:
     def __init__(self, workdir: str, stage: int, xgriditer: int, slots: int, config: slurmconfig):
-        self.__executable = os.path.join(repo, "powheg_runner.py")
-        self.__environment_executable = os.path.join(repo, "powheg_run_in_env.sh")
+        self.__executable = os.path.join(repo, "powheg_stage_steer.sh")
         self.__prepare_executable = os.path.join(repo, "powheg_stage_prepare.sh")
         self.__workdir = workdir
         self.__stage = stage
@@ -70,21 +68,8 @@ class MultiStageJob:
     def get_jobid_prepare(self) -> int:
         return self.__jobidPrepare
 
-    def __build_containerwrapper(self, powheg_version: str) -> str:
-        containercmd = ""
-        if cluster == "CADES" or cluster == "PERLMUTTER":
-            containercmd = create_containerwrapper(self.__workdir, self.__config.cluster(), get_OSVersion(self.__config.cluster(), powheg_version))
-        elif cluster == "B587" and "VO_ALICE" in powheg_version:
-            # needs container also on the 587 cluster for POWHEG versions from cvmfs
-            # will use the container from ALICE, so the OS version does not really matter
-            containercmd = create_containerwrapper(self.__workdir, self.__config.cluster(), "CentOS8")
-        return containercmd
-    
-    def __build_environment_command(self, powheg_version: str) -> str:
-        return f"{self.__environment_executable} {repo} {self.__config.cluster()} {powheg_version}"
-
-    def __build_command(self)-> str:
-        return f"{self.__executable} {self.__workdir} NONE -t dijet --stage {self.__stage} --xgriditer {self.__xgriditer}"
+    def __build_command(self, powheg_version: str)-> str:
+        return f"{self.__executable} {self.__config.cluster()} {repo} {self.__workdir} {powheg_version} {self.__stage} {self.__xgriditer}"
 
     def __prepare_command(self):
         return f"{self.__prepare_executable} {self.__workdir} {self.__stageconfig} {self.__stageseeds}"
@@ -108,7 +93,7 @@ class MultiStageJob:
         if len(timelimit):
             timelimit =  self.__config.timelimit()
         self.__jobidPrepare = submit(self.__prepare_command(), self.__config.cluster(), jobname_prepare, logfile_prepare, self.__config.queue(), 1, "00:10:00", "2G", self.__dependency)
-        self.__jobid = submit("{} {} {}".format(self.__build_containerwrapper(powheg_version), self.__build_environment_command(powheg_version), self.__build_command()).lstrip(), self.__config.cluster(), jobname, logfile, self.__config.queue(), self.__slots, timelimit, self.__config.memory(), [self.__jobidPrepare])
+        self.__jobid = submit(self.__build_command(powheg_version), self.__config.cluster(), jobname, logfile, self.__config.queue(), self.__slots, timelimit, self.__config.memory(), [self.__jobidPrepare])
     
 class StageConfiguration:
 
