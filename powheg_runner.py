@@ -9,12 +9,13 @@ import subprocess
 import sys
 import time
 
-from helpers.setup_logging import setup_logging
-from helpers.reweighting import create_config_pdfreweight, create_config_scalereweight, build_weightID_scalereweight, build_weightID_pdfreweight, weightID
 from helpers.events import create_config_nevens
+from helpers.gridarchive import gridarchive, init_archive
 from helpers.powheg import is_valid_process
-from helpers.pwsemaphore import pwsemaphore, has_semaphore
 from helpers.pwgeventsparser import pwgeventsparser, pwgevents_info
+from helpers.pwsemaphore import pwsemaphore, has_semaphore
+from helpers.setup_logging import setup_logging
+from helpers.reweighting import create_config_pdfreweight, create_config_scalereweight, build_weightID_scalereweight, build_weightID_pdfreweight 
 
 class POWHEG_runner:
 
@@ -24,6 +25,7 @@ class POWHEG_runner:
         self.__reweightscale = False
         self.__reweightpdf = False
         self.__gridrepository = ""
+        self.__gridarchive: gridarchive = None
         self.__minpdf = -1
         self.__maxpdf = -1
         self.__minid = -1
@@ -156,6 +158,7 @@ class POWHEG_runner:
                 self.__run_scalereweight()
             elif self.__run_pdfreweight():
                 self.__run_pdfreweight()
+        self.__pack_grids()
         return True
 
     def __run_scalereweight(self):
@@ -269,83 +272,6 @@ class POWHEG_runner:
         decoder.parse()
         return decoder.get_eventinfos()
 
-    def __get_gridfiles(self):
-        return ["pwggrid.dat", "pwgubound.dat", "pwgxgrid.dat"]
-
-    def __find_gridfiles_parallelstage(self):
-        filter = lambda x: x.startswith("pwggrid-") or x.startswith("pwgubound-") or x.startswith("pwggridinfo-btl-xg")
-        return [x for x in os.listdir(self.__gridrepository) if filter(x)]
-
-    def __check_gridfile_parallel(self):
-        if not os.path.exists(self.__gridrepository):
-            return False
-        files_repository = self.__find_gridfiles_parallelstage()
-        logging.info("found %d gridfiles parallel stage", len(files_repository))
-        grids = [x for x in files_repository if x.startswith("pwggrid-")]
-        ubounds = [x for x in files_repository if x.startswith("pwgubound-")]
-        gridinfos = [x for x in files_repository if x.startswith("pwggridinfo-btl-xg")]
-        if len(grids) > 0 and len(ubounds) > 0 and len(gridinfos) > 0:
-            if len(grids) == len(ubounds):
-                if len(gridinfos) % len(grids) == 0:
-                    logging.info("Found PWG grids from parallel stage: %d grid, %d ubounds and %d gridinfos", len(grids), len(ubounds), len(gridinfos))
-                    return True
-                else:
-                    logging.error("Number of gridinfos not multiple of number of grids (%d gridinfos, %d grids)", len(gridinfos), len(grids))
-                    return False
-            else:
-                logging.error("Inconsistent grid files from parallel stage: %d grids, %d ubounds, %d gridinfos", len(grids), len(ubounds), len(gridinfos))
-                return False
-        else:
-            logging.debug("Either one or several grid files missing")
-            return False
-
-    def __check_gridfiles(self) -> bool:
-        if not os.path.exists(self.__gridrepository):
-            return False
-        gridfiles = self.__get_gridfiles()
-        file_in_gridrepo = os.listdir(self.__gridrepository)
-        files_missing = []
-        for fl in gridfiles:
-            if not fl in file_in_gridrepo:
-                files_missing.append(fl)
-        if len(files_missing):
-            logging.error("The following grid files have been missing: ")
-            logging.error("=======================================================")
-            for fl in files_missing:
-                logging.error(fl)
-            return False
-        return True
-
-    def __fetch_oldgrids(self, parallel_mode: bool):
-        if not os.path.exists(self.__gridrepository):
-            logging.error("Repository with grids not existing")
-            return
-        gridfiles = []
-        if parallel_mode:
-            files_repository = self.__find_gridfiles_parallelstage()
-            grids = [x for x in files_repository if x.startswith("pwggrid-")]
-            ubounds = [x for x in files_repository if x.startswith("pwgubound-")]
-            gridinfos = [x for x in files_repository if x.startswith("pwggridinfo-btl-xg")]
-            # select all grids and ubounds
-            for fl in grids:
-                gridfiles.append(fl)
-            for fl in ubounds:
-                gridfiles.append(fl)
-            # select files from the largest xgrid iteration
-            lastiteration = -1
-            for info in gridinfos:
-                xgiter = info.split("-")[2]
-                xgiterval = int(xgiter.replace("xg",""))
-                if xgiterval > lastiteration:
-                    lastiteration = xgiterval
-            logging.info("Last xgrid iteration: %d", lastiteration)
-            for fl in [x for x in gridinfos if f"xg{lastiteration}" in x]:
-                gridfiles.append(fl)
-        else:
-            gridfiles = self.__get_gridfiles()
-        for fl in gridfiles:
-            self.__copy_to_workdir(os.path.join(self.__gridrepository, fl), fl)
-
     def __check_settings(self):
         if self.is_reweight() and self.is_useexistinggrids():
             logging.error("Cannot run with old grids in reweight mode")
@@ -386,6 +312,19 @@ class POWHEG_runner:
             configwriter.write("iseed %d\n" %randomseed)
             configwriter.close()
 
+    def __pack_grids(self):
+        if self.__gridarchive:
+            if not self.__workdir_has_file("grids.zip"):
+                self.__gridarchive.build("grids.zip")
+            self.__gridarchive.clean_gridfiles(self.__workdir)
+
+    def __extractgrids(self, gridarchivefile: str):
+        if self.__gridarchive:
+            wd = os.getcwd()
+            os.chdir(self.__workdir)
+            self.__gridarchive.extract(gridarchivefile)
+            os.chdir(wd)
+
     def __prepare_workdir(self):
         if self.is_parallelstage():
             # Workdir handled outside in parallelstage
@@ -424,15 +363,25 @@ class POWHEG_runner:
                 # Use existing configuration with the default number of events
                 self.__copy_to_workdir(self.__pwginput, "powheg.input")
         if self.is_useexistinggrids():
-            parallelmode = False
-            if not self.__check_gridfile_parallel():
-                if not self.__check_gridfiles():
+            if not self.__gridrepository.endswith(".zip"):
+                self.__gridarchive = init_archive(self.__gridrepository)
+                self.__gridarchive.stage(self.__gridrepository, self.__workdir)
+            else:
+                self.__gridarchive = gridarchive()
+                self.__extractgrids(self.__gridrepository)
+            if not self.__gridarchive.check():
+                logging.error("Request running with existing grids, but not all expected files found, cannot run ...")
+                return
+            logging.info("Found %d grid files in %s (%s mode)", self.__gridarchive.number_allgrids(), self.__gridrepository, "parallel" if self.__gridarchive.is_parallel_mode() else "sequential") 
+        else:
+            localgrids = os.path.join(self.__workdir, "grids.zip")
+            if os.path.exists(localgrids):
+                self.__gridarchive = gridarchive()
+                self.__extractgrids(localgrids)
+                if not self.__gridarchive.check():
                     logging.error("Request running with existing grids, but not all expected files found, cannot run ...")
                     return
-            else:
-                parallelmode = True
-            logging.info("Found grid files in %s (%s mode)", self.__gridrepository, "parallel" if parallelmode else "sequential") 
-            self.__fetch_oldgrids(parallelmode)
+                logging.info("Found %d grid files in grids.zip in working directory (%s mode)", self.__gridarchive.number_allgrids(), "parallel" if self.__gridarchive.is_parallel_mode() else "sequential") 
         self.__workdirInitialized = True
         
 if __name__ == "__main__":
