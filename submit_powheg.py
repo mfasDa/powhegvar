@@ -22,8 +22,10 @@ def make_powhegrunner(config: SimConfig) -> str:
     executable = f"{repo}/powheg_runner.py"
     workdir = os.path.join(config.workdir, f"POWHEG_{config.powhegversion}")
     cmd = f"{executable} {workdir} {config.powheginput} -t {config.process}"
-    if not config.is_scalereweight() and not config.is_pdfreweight() and config.nevents > 0:
-        cmd += f" -e {config.nevents}"
+    if not config.is_scalereweight() and not config.is_pdfreweight():
+        cmd += f" -i {config.powheginput}"
+        if config.nevents > 0:
+            cmd += f" -e {config.nevents}"
     if config.minslot > 0:
         cmd += f" --slotoffset {config.minslot}"
     if len(config.gridrepository) and config.gridrepository != "NONE":
@@ -81,7 +83,7 @@ def prepare_outputlocation(outputlocation: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("submit_powheg.py", description="Submitter for powheg")
     parser.add_argument("workdir", metavar="WORKDIR", type=str, help="Working directory")
-    parser.add_argument("-i", "--input", metavar="POWHEGINPUT", type=str, default=os.path.join(repo, "powheginputs", "powheg_13TeV_CT14_default.input"), help="POWHEG input")
+    parser.add_argument("-i", "--input", metavar="POWHEGINPUT", type=str, default="", help="POWHEG input")
     parser.add_argument("-e", "--events", metavar="EVENTS", type=int, default=0, help="Number of events (default: 0:=Default number of events in powheg.input)")
     parser.add_argument("-n", "--njobs", metavar="NJOBS", type=int, default=-1, help="Number of slots")
     parser.add_argument("-m", "--minslot", metavar="MINSLOT", type=int, default=0, help="Min. slot ID")
@@ -109,6 +111,12 @@ if __name__ == "__main__":
     if not is_valid_process(args.process):
         logging.error("Process \"%s\" not valid", args.process)
         sys.exit(1)
+
+    scalereweight = args.scalereweight
+    pdfreweight = args.minpdf > -1 and args.maxpdf > -1
+    if not scalereweight and not pdfreweight:
+        if not len(args.input):
+            logging.info("powheg.input must be provided in non-reweight mode")
 
     simconfig = SimConfig()
     simconfig.workdir = args.workdir

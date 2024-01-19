@@ -189,7 +189,7 @@ def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str
     return submitcmd
 
 def submit(command: str, cluster: str, jobname: str, logfile: str, partition: str, arraysize: int = 0, timelimit: str = "10:00:00", memory: str = "4G", dependency: list = [], envrionment: str = "") -> int:
-    submitcmd = ncorejob(cluster, 1, jobname, logfile, partition, timelimit, memory, dependency)
+    submitcmd = ncorejob(cluster, 1, jobname, logfile, partition, timelimit, memory, dependency,envrionment)
     if arraysize > 0:
         submitcmd += " --array=0-{}".format(arraysize-1)
     submitcmd += " {}".format(command)
@@ -200,8 +200,8 @@ def submit(command: str, cluster: str, jobname: str, logfile: str, partition: st
     jobid = int(toks[len(toks)-1])
     return jobid
 
-def submit_range(command: str, cluster: str, jobname: str, logfile: str, partition: str, arrayrange: dict, timelimit: str = "10:00:00", memory: str = "4G", dependency: list = [], nevironment: str = "") -> int:
-    submitcmd = ncorejob(cluster, 1, jobname, logfile, partition, timelimit, memory, dependency)
+def submit_range(command: str, cluster: str, jobname: str, logfile: str, partition: str, arrayrange: dict, timelimit: str = "10:00:00", memory: str = "4G", dependency: list = [], environment: str = "") -> int:
+    submitcmd = ncorejob(cluster, 1, jobname, logfile, partition, timelimit, memory, dependency, environment)
     submitcmd += " --array={}-{}".format(arrayrange["first"], arrayrange["last"])
     submitcmd += " {}".format(command)
     logging.debug(submitcmd)

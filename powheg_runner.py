@@ -12,10 +12,12 @@ import time
 from helpers.events import create_config_nevens
 from helpers.gridarchive import gridarchive, init_archive
 from helpers.powheg import is_valid_process
+from helpers.powhegconfig import replace_value 
 from helpers.pwgeventsparser import pwgeventsparser, pwgevents_info
 from helpers.pwsemaphore import pwsemaphore, has_semaphore
 from helpers.setup_logging import setup_logging
 from helpers.reweighting import create_config_pdfreweight, create_config_scalereweight, build_weightID_scalereweight, build_weightID_pdfreweight 
+from helpers.timehelpers import log_elapsed_time
 
 class POWHEG_runner:
 
@@ -162,6 +164,10 @@ class POWHEG_runner:
         return True
 
     def __run_scalereweight(self):
+        powheginput_base = self.__get_base_powheginput_for_reweight()
+        if not len(powheginput_base):
+            logging.error("No base POWHEG input found, cannot create reweighting config")
+            return
         os.chdir(self.__workdir)
         currentid = self.__minid
         currentpwgevents = pwgevents_info()
@@ -189,7 +195,7 @@ class POWHEG_runner:
                 if currentWeightID in self.__foundweights:
                     logging.info("Weight ID %s (%s) already found - not running again", currentWeightID.name, currentWeightID.title)
                     continue
-                create_config_scalereweight(self.__pwginput, os.path.join(self.__workdir, "powheg.input"), variationMuF, variationMuR, currentid)
+                create_config_scalereweight(powheginput_base, os.path.join(self.__workdir, "powheg.input"), variationMuF, variationMuR, currentid)
                 vartag = "mur%d_muf%d" %(int(variationMuR*10.), int(variationMuF*10.))
                 self.__run_powhegjob(f"pwhg_{vartag}.log")
                 if self.__workdir_has_reweightevents():
@@ -199,6 +205,10 @@ class POWHEG_runner:
                 currentid += 1
 
     def __run_pdfreweight(self):
+        powheginput_base = self.__get_base_powheginput_for_reweight()
+        if not len(powheginput_base):
+            logging.error("No base POWHEG input found, cannot create reweighting config")
+            return
         os.chdir(self.__workdir)
         currentid = self.__minid
         currentpdf = self.__minpdf
@@ -221,7 +231,7 @@ class POWHEG_runner:
             if currentWeightID in self.__foundweights:
                 logging.info("Weight ID %s (%s) already found - not running again", currentWeightID.name, currentWeightID.title)
                 continue
-            create_config_pdfreweight(self.__pwginput, os.path.join(self.__workdir, "powheg.input"), currentpdf, currentid)
+            create_config_pdfreweight(powheginput_base, os.path.join(self.__workdir, "powheg.input"), currentpdf, currentid)
             
             self.__run_powhegjob(f"pwgh_PDF{currentpdf}.log")
             if self.__workdir_has_reweightevents():
@@ -272,26 +282,39 @@ class POWHEG_runner:
         decoder.parse()
         return decoder.get_eventinfos()
 
+    def __get_base_powheginput_for_reweight(self) -> str:
+        powheginput_base = self.__workdir_find_powgheginput("base")
+        if not len(powheginput_base):
+            powheginput_base = self.__pwginput
+        return powheginput_base
+
     def __check_settings(self):
         if self.is_reweight() and self.is_useexistinggrids():
             logging.error("Cannot run with old grids in reweight mode")
             return False
         return True
 
-    def __check_pwginput(self):
+    def __check_pwginput(self) -> bool:
         return os.path.exists(self.__pwginput)
 
-    def __workdir_has_file(self, filename: str):
+    def __workdir_has_file(self, filename: str) -> bool:
         return os.path.exists(os.path.join(self.__workdir, filename))
 
-    def __workdir_has_pwgevents(self):
+    def __workdir_has_pwgevents(self) -> bool:
         return self.__workdir_has_file("pwgevents.lhe")
 
-    def __workdir_has_reweightevents(self):
+    def __workdir_has_reweightevents(self) -> bool:
         return self.__workdir_has_file("pwgevents-rwgt.lhe")
 
-    def __workdir_has_powheginput(self):
-        return self.__workdir_has_file("powheg.input")
+    def __workdir_has_powheginput(self, vartag:  str = "") -> bool:
+        testfile = "powheg.input" if not len(vartag) else f"powheg_{vartag}.input"
+        return self.__workdir_has_file(testfile)
+
+    def __workdir_find_powgheginput(self, vartag: str) -> str:
+        result = ""
+        if self.__workdir_has_powheginput(vartag):
+            result = "powheg.input" if not len(vartag) else f"powheg_{vartag}.input"
+        return result
 
     def __workdir_filerename(self, oldfile: str, newfile:str):
         os.rename(os.path.join(self.__workdir, oldfile), os.path.join(self.__workdir, newfile))
@@ -308,9 +331,24 @@ class POWHEG_runner:
     def __set_seed(self):
         randomseed = random.randint(0, 32767)
         logging.info("Using random seed: %d", randomseed)
-        with open(os.path.join(self.__workdir, "powheg.input"), "a") as configwriter:
-            configwriter.write("iseed %d\n" %randomseed)
-            configwriter.close()
+        configfile = os.path.join(self.__workdir, "powheg.input")
+        tmpfile = os.path.join(self.__workdir, "powheg.input.tmp")
+        os.rename(configfile, tmpfile)
+        with open(tmpfile, 'r') as configreader:
+            with open(configfile, 'w') as configwriter:
+                hasSeed = False
+                for line in configreader:
+                    if "iseed" in line:
+                        newseed = replace_value(line.rstrip("\n"), f"{randomseed}")
+                        configwriter.write(f"{newseed}\n")
+                        hasSeed = True
+                    else:
+                        configwriter.write(f"{line}")
+                if not hasSeed:
+                    configwriter.write("iseed %d\n" %randomseed)
+                configwriter.close()
+            configreader.close()
+        os.remove(tmpfile)                     
 
     def __pack_grids(self):
         if self.__gridarchive:
@@ -387,7 +425,7 @@ class POWHEG_runner:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("powheg_runner.py", description="Frontent for POWHEG calculations")
     parser.add_argument("workdir", metavar="WORKDIR", type=str, help="Processing directory")
-    parser.add_argument("input", metavar="POWHEGINPUT", type=str, help="Full path of powheg input file")
+    parser.add_argument("-i", "--input", metavar="POWHEGINPUT", type=str, default="", help="Full path of powheg input file")
     parser.add_argument("-e", "--events", metavar="EVENTS", type=int, default=0, help="Number of events")
     parser.add_argument("-t", "--type", metavar="POWHEGTYPE", type=str, default="dijet", help="POWHEG type, can be dijet, directphoton, hvq, W or Z (default: dijet)")
     parser.add_argument("-g", "--gridfiledir", metavar="GRIDFILEDIR", type=str, default="", help="Location of gridfile (in case of running with existing grids)")
@@ -412,6 +450,10 @@ if __name__ == "__main__":
         if not args.minid > -1:
             logging.error("A valid minid must be specified in reweighting mode")
             sys.exit(2)
+    else:
+        if not len(args.input):
+            logging.error("powheg.input must be provided in no-reweighting mode")
+            sys.exit(3)
 
     workdir = os.path.abspath(args.workdir)
     workdirmessage = f"Using working directory: {workdir}"
@@ -445,17 +487,13 @@ if __name__ == "__main__":
         processor.set_parallelstage(args.stage, args.xgriditer)
     if not processor.init():
         logging.error("Error during initialization of the POWHEG processor, cannot run the simulation ...")
-        sys.exit(3)
+        sys.exit(4)
     else:
         starttime = time.time()
         logging.info("POWHEG processor initialized, running the simulation")
         if processor.run():
             endtime = time.time()
-            elapsed_seconds = endtime - starttime
-            hours = elapsed_seconds / 3600
-            minutes = (elapsed_seconds / 60) % 60
-            seconds = elapsed_seconds % 60
-            logging.info("POWHEG processing finished, took %d:%d:%d (%d seconds total)", hours, minutes, seconds, elapsed_seconds)
+            log_elapsed_time("POWHEG processing", starttime, endtime)
         else:
             logging.info("Error in POWHEG processing")
-            sys.exit(4)
+            sys.exit(5)

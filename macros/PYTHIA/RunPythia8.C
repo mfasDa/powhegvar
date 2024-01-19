@@ -349,7 +349,9 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
     if(gSystem->Getenv("CONFIG_RECOMBINATIONSCHEME")) {
         std::string value = gSystem->Getenv("CONFIG_RECOMBINATIONSCHEME");
         std::cout << "Setting recombination scheme to " << value;
-        if(value == "ptscheme") {
+        if(value == "Escheme") {
+            scheme = fastjet::E_scheme;
+        } else if(value == "ptscheme") {
             scheme = fastjet::pt_scheme;
         } else if(value == "pt2scheme") {
             scheme = fastjet::pt2_scheme;
