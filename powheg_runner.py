@@ -388,7 +388,7 @@ class POWHEG_runner:
             if self.__workdir_has_reweightevents():
                 logging.error("Found unexpected file pwgevents-rwgt.lhe for reweighting mode, processing might crash, cannot run ...")
                 return
-            if self.__workdir_has_powheginput():
+            if self.__workdir_has_powheginput() and not self.__workdir_has_file("powheg_base.input"):
                 self.__stage_powheginput("base")
         else:
             if len(os.listdir(self.__workdir)):

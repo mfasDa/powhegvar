@@ -78,6 +78,16 @@ class CheckResults(object):
         return self.__corrupted
 
 
+def clean_slortdir(slotdir: str):
+    # remove existing reweight file and semaphore
+    logging.debug("Cleaning %s" %slotdir)
+    rwgtfile = os.path.join(slotdir, "pwgevents-rwgt.lhe")
+    if os.path.exists(rwgtfile):
+        os.remove(rwgtfile)
+    semaphore = os.path.join(slotdir, "pwgsemaphore.txt")
+    if os.path.exists(semaphore):
+        os.remove(semaphore)
+
 def get_failed_slots(checkfile: str) -> CheckResults:
     result = CheckResults()
     markerstart = "pwgevents.lhe files with missing weights:"
@@ -122,6 +132,7 @@ if __name__ == "__main__":
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
+    parser.add_argument("--process", metavar="PROCESS", type=str, default="dijet", help="POWHEG process")
     parser.add_argument("--scalereweight", action="store_true", help="Scale reweight")
     parser.add_argument("--minID", metavar="MINID", type=int, default=-1, help="Min. weight ID PDF reweighting")
     parser.add_argument("--minpdf", metavar="MINPDF", type=int, default=-1, help="Min. pdf PDF reweight")
@@ -152,6 +163,8 @@ if __name__ == "__main__":
     simconf = SimConfig()
     simconf.powhegversion = args.version
     simconf.powheginput = None
+    simconf.process = args.process
+    simconf.workdir = os.path.dirname(workdir)
 
     jobids_check = []
     for failed in failedfiles:
@@ -169,6 +182,7 @@ if __name__ == "__main__":
             simconf.minpdf = minpdf
             simconf.maxpdf = maxpdf
         logging.info("Submitting slot: %d", simconf.minslot)
+        clean_slortdir(os.path.join(workdir, "%04d" %failed.get_slotID()))
         pwhgjob = submit_job(simconf, batchconfig, True)
         checkjob = submit_check_slot(cluster, repo, workdir, failed.get_slotID(), partition, pwhgjob)
         jobids_check.append(checkjob)
