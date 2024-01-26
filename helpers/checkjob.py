@@ -69,6 +69,7 @@ def submit_checks(cluster: str, repo: str, workdir: str, partition: str, pwhgjob
         logging.info("Job ID(s) for automatic checking: %s", checkjobstring)
     else:
         logging.info("launching only final summary job")
+        checkjob = pwhgjob
     checksummaryjob = submit_check_summary(cluster, repo, workdir, partition, 2, 1, checkjob)
     logging.info("Job ID for analysing checking results: %d", checksummaryjob)
 

@@ -25,7 +25,7 @@ def get_default_partition(cluster: str):
 
 def get_fast_partition(cluster: str):
     if cluster == "CADES":
-        return "high_mem_cd"
+        return "burst"
     elif cluster == "PERLMUTTER":
         return "shared"
     elif cluster == "B587":

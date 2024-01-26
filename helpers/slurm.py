@@ -179,7 +179,7 @@ def ncorejob(cluster: str, cpus: int, jobname: str, logfile: str, partition: str
             if len(dependencystring):
                 dependencystring += ':'
             dependencystring += f"{dep}"
-        submitcmd += f" -d {dependencystring}"
+        submitcmd += f" --dependency=afterany:{dependencystring}"
     if len(environment):
         submitcmd += "export={}".format(environment)
     if cluster == "PERLMUTTER":
