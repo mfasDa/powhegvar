@@ -84,7 +84,7 @@ class MultiStageJob:
         return f"{self.__environment_executable} {repo} {self.__config.cluster()} {powheg_version}"
 
     def __build_command(self)-> str:
-        return f"{self.__executable} {self.__workdir} NONE -t dijet --stage {self.__stage} --xgriditer {self.__xgriditer}"
+        return f"{self.__executable} {self.__workdir} -i NONE -t dijet --stage {self.__stage} --xgriditer {self.__xgriditer}"
 
     def __prepare_command(self):
         return f"{self.__prepare_executable} {self.__workdir} {self.__stageconfig} {self.__stageseeds}"

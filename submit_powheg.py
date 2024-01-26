@@ -21,7 +21,7 @@ repo = os.path.dirname(os.path.abspath(sys.argv[0]))
 def make_powhegrunner(config: SimConfig) -> str:
     executable = f"{repo}/powheg_runner.py"
     workdir = os.path.join(config.workdir, f"POWHEG_{config.powhegversion}")
-    cmd = f"{executable} {workdir} {config.powheginput} -t {config.process}"
+    cmd = f"{executable} {workdir} -t {config.process}"
     if not config.is_scalereweight() and not config.is_pdfreweight():
         cmd += f" -i {config.powheginput}"
         if config.nevents > 0:
@@ -55,7 +55,7 @@ def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig, singleslot: bool 
         logfile = os.path.join(logdir, f"joboutput{simconfig.minslot}.log")
     else:
         logfile = os.path.join(logdir, "joboutput%a.log")
-    energytag = "%.1fT" %(get_energy_from_config(simconfig.powheginput)/1000)
+    energytag = "%.1fT" %(get_energy_from_config(simconfig.powheginput)/1000) if simconfig.powheginput else "None"
     logging.info("Running simulation for energy %s", energytag)
     runcmd =  "%s %s" %(configure_env(batchconfig.cluster, simconfig.powhegversion), make_powhegrunner(simconfig))
     #executable = os.path.join(repo, "run_powheg_singularity.sh")
