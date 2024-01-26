@@ -79,7 +79,7 @@ public:
 
         // POWHEG Merging Parameters
         mEngine.readString("POWHEG:veto = 1");
-        mEngine.readString("POWHEG:vetoCount = 10000");
+        mEngine.readString("POWHEG:vetoCount = 1000000");
         mEngine.readString("POWHEG:pThard = 2");  //! Effective
         mEngine.readString("POWHEG:pTemt = 0");   // Don't Change this parameter
         mEngine.readString("POWHEG:emitted = 0"); //!
@@ -156,7 +156,7 @@ public:
             if (selectFinal && !mEngine.event[i].isFinal()) continue;
             new(clonesParticles[nparts]) TParticle(
                                                     mEngine.event[i].id(),
-                                                    mEngine.event[i].isFinal(),
+                                                    mEngine.event[i].isFinal() ? 1 : -1.,
                                                     mEngine.event[i].mother1() + ioff,
                                                     mEngine.event[i].mother2() + ioff,
                                                     mEngine.event[i].daughter1() + ioff,
@@ -269,6 +269,11 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
             std::cout << "Setting Decays" << std::endl;
             pythia.setDecay();
         } 
+    }
+    float yboost = 0.;
+    if(gSystem->Getenv("CONFIG_YBOOST")) {
+        yboost = atof(gSystem->Getenv("CONFIG_YBOOST"))/1000.;
+        std::cout << "Applying rapidity boost: " << yboost << std::endl;
     }
     if(gSystem->Getenv("CONFIG_JETTYPE")) {
         int val = atoi(gSystem->Getenv("CONFIG_JETTYPE"));
@@ -514,7 +519,7 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
             Float_t energy = part->Energy();
 
             //if (abs(eta) > 0.9)
-            if (std::abs(eta) > kMaxEta)
+            if (eta > yboost + kMaxEta || eta < yboost - kMaxEta)
                 continue;
             if(charge == 0) {
                 // ptcut on neutral particles
@@ -592,8 +597,9 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
                     // exlcuding leading background jets (could be signal)
                     if (iJets == 0 || iJets == 1)
                         continue;
-
-                    if (TMath::Abs(inclusive_jetsBkg[iJets].eta()) > (0.5))
+                    
+                    double bgjeteta = inclusive_jetsBkg[iJets].eta();
+                    if (bgjeteta > yboost + 0.5 || bgjeteta < yboost - 0.5)
                         continue;
 
                     // Search for overlap with signal jets
@@ -634,9 +640,10 @@ void RunPythia8(const char *inputfile = "pwgevents.lhe", const char *foutname = 
             }
 
             for (unsigned int i = 0; i < inclusive_jets.size(); i++) {
-
-                if (TMath::Abs(inclusive_jets[i].eta()) > (Etavals[iR] / 2))
+                double jeteta = inclusive_jets[i].eta();
+                if (jeteta > yboost + (Etavals[iR] / 2) || jeteta < yboost - (Etavals[iR] / 2)) {
                     continue;
+                }
 
                 Double_t PtSub = inclusive_jets[i].perp() - (Rho * inclusive_jets[i].area());
 

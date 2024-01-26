@@ -35,6 +35,7 @@ class PythiaParams(object):
         self.__ecutneutral = InitializedValue()
         self.__jettype = InitializedValue()
         self.__recombinationScheme = InitializedValue()
+        self.__yboost = InitializedValue()
 
     def set_tune(self, tune: int):
         if tune >= 0 and tune <=32:
@@ -72,6 +73,9 @@ class PythiaParams(object):
                 self.__ptcutcharged.value = ptcut
             else:
                 self.__ptcutneutral = ptcut
+
+    def set_yboost(self, yboost: float):
+        self.__yboost.value = yboost
     
     def set_jettype(self, jettype: str):
         jettypes = ["full", "charged"]
@@ -96,6 +100,8 @@ class PythiaParams(object):
             os.environ["CONFIG_MPI"] = "{}".format(1 if self.__mpi.value else 0)
         if self.__decay.is_initialised():
             os.environ["CONFIG_DECAY"] = "{}".format(1 if self.__mpi.value else 0)
+        if self.__yboost.is_initialised():
+            os.environ["CONFIG_YBOOST"] = "{}".format(int(self.__yboost.value * 1000.))
         if self.__ptcut.is_initialised():
             self.__export_energycut("PTCUT", self.__ptcut.value)
         if self.__ptcutcharged.is_initialised():
@@ -136,6 +142,9 @@ class PythiaParams(object):
         if self.__decay.is_initialised():
             serialized = add_optional_separator(serialized)
             serialized += "decays={}".format("true" if self.__mpi.value else "false")
+        if self.__yboost.is_initialised():
+            serialized = add_optional_separator(serialized)
+            serialized += "yboost={:.3f}".format(self.__yboost.value)
         if self.__ptcut.is_initialised():
             serialized = add_optional_separator(serialized)
             serialized += "ptmin={:.3f}".format(self.__ptcut.value)
@@ -179,6 +188,9 @@ class PythiaParams(object):
             if key == "decays":
                 self.set_decay(True if value == "true" else False)
                 continue
+            if key == "yboost":
+                self.set_yboost(float(value))
+                continue
             if key == "ptmin":
                 self.set_ptecut(float(value), False, True, False)
                 continue
@@ -212,6 +224,7 @@ class PythiaParams(object):
         args.add_argument("--no_decay", action="store_true", help="Disable decays of long-lived particles in PYTHIA")
         args.add_argument("--jettype", metavar="JETTYPE", type=str, default="full", help="Jet type (charged or full)")
         args.add_argument("--recombinationscheme", metavar="RECOMBINATIONSCHEME", type=str, default="Escheme", help="Recombination scheme")
+        args.add_argument("--yboost", metavar="YBOOST", type=float, default=0., help="Rapidity boost")
         args.add_argument("--ptmin", metavar="PTMIN", type=float, default=-1., help="Min. pt. (all constituents)")
         args.add_argument("--ptmincharged", metavar="PTMINCHARGED", type=float, default=-1., help="Min. pt. (charged constituents)")
         args.add_argument("--ptminneutral", metavar="PTMINNEUTRAL", type=float, default=-1., help="Min. pt. (neutral constituents)")
@@ -228,6 +241,8 @@ class PythiaParams(object):
         self.set_decay(False if not args.no_decay else True)
         self.set_jettype(args.jettype)
         self.set_recombinationscheme(args.recombinationscheme)
+        if args.yboost != 0.:
+            self.set_yboost(args.yboost)
         if args.ptmin > -1:
             self.set_ptecut(args.ptmin, False, True, False)
         if args.ptmincharged > -1:
@@ -262,4 +277,5 @@ class PythiaParams(object):
         logging.info("  Min. E:                {}".format(self.__ecut.value if self.__ecut.is_initialised() else "Not set"))
         logging.info("  Min. E (charged):      {}".format(self.__ecutcharged.value if self.__ecutcharged.is_initialised() else "Not set"))
         logging.info("  Min. E (neutral):      {}".format(self.__ecutneutral.value if self.__ecutneutral.is_initialised() else "Not set"))
+        logging.info("  y-boost:               {}".format(self.__yboost.value if self.__yboost.is_initialised() else "Not set"))
         
