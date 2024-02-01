@@ -12,6 +12,17 @@ from submit_powheg import submit_job
 from helpers.slurm import SlurmConfig
 from helpers.simconfig import SimConfig
 
+class SlotIndexException(Exception):
+
+    def __init__(self, slotname: str):
+        self.__slotname = slotname
+
+    def __str__(self) -> str:
+        return f"Cannot determine slot index from {self.__slotname}"
+
+    def get_slotname(self) -> str:
+        return self.__slotname
+
 class Corruptedfile(object):
 
     def __init__(self, fname: str, missingweights: list):
@@ -55,9 +66,9 @@ class Corruptedfile(object):
         slotdir = os.path.dirname(self.__fname)
         slotID = os.path.basename(slotdir)
         if slotID.isdigit():
-            logging.info("Found slot: %s", slotID)
+            logging.debug("Found slot: %s", slotID)
             return int(slotID)
-        return None
+        raise SlotIndexException(slotID)
 
 class CheckResults(object):
 
@@ -132,6 +143,7 @@ if __name__ == "__main__":
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
     parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
+    parser.add_argument("-t", "--test", action="store_true", help="Test mode")
     parser.add_argument("--process", metavar="PROCESS", type=str, default="dijet", help="POWHEG process")
     parser.add_argument("--scalereweight", action="store_true", help="Scale reweight")
     parser.add_argument("--minID", metavar="MINID", type=int, default=-1, help="Min. weight ID PDF reweighting")
@@ -168,23 +180,34 @@ if __name__ == "__main__":
 
     jobids_check = []
     for failed in failedfiles:
-        if not failed.get_slotID():
-            continue
-        simconf.minslot = failed.get_slotID()
-        if args.scalereweight:
-            if len(failed.get_missing_weights_scale()):
-                simconf.set_scalereweight(True)
-        else:
-            foundpdfweights = sorted(failed.get_missing_weights_pdf())
-            minpdf = args.minpdf + (foundpdfweights - args.minID)
-            maxpdf = minpdf + (foundpdfweights[len(foundpdfweights)-1] - foundpdfweights[0])
-            simconf.minID = foundpdfweights[0]
-            simconf.minpdf = minpdf
-            simconf.maxpdf = maxpdf
-        logging.info("Submitting slot: %d", simconf.minslot)
-        clean_slortdir(os.path.join(workdir, "%04d" %failed.get_slotID()))
-        pwhgjob = submit_job(simconf, batchconfig, True)
-        checkjob = submit_check_slot(cluster, repo, workdir, failed.get_slotID(), partition, pwhgjob)
-        jobids_check.append(checkjob)
+        try:
+            slotID = failed.get_slotID()
+            logging.info("Found slot: %s", slotID)
+            simconf.minslot = failed.get_slotID()
+            if args.scalereweight:
+                if len(failed.get_missing_weights_scale()):
+                    simconf.set_scalereweight(True)
+            else:
+                foundpdfweights = sorted(failed.get_missing_weights_pdf())
+                weightstring = ""
+                for weight in foundpdfweights:
+                    if len(weightstring):
+                        weightstring += ", "
+                    weightstring += f"{weight}"
+                logging.debug("Found PDF weights: %s", weightstring)
+                minpdf = args.minpdf + (foundpdfweights[0] - args.minID)
+                maxpdf = minpdf + (foundpdfweights[len(foundpdfweights)-1] - foundpdfweights[0])
+                simconf.minID = foundpdfweights[0]
+                simconf.minpdf = minpdf
+                simconf.maxpdf = maxpdf
+                logging.info("Found missing: min: %d / max: %d PDF, min. ID: %d", minpdf, maxpdf, simconf.minID)
+            logging.info("Submitting slot: %d", simconf.minslot)
+            if not args.test:
+                clean_slortdir(os.path.join(workdir, "%04d" %slotID))
+                pwhgjob = submit_job(simconf, batchconfig, True)
+                checkjob = submit_check_slot(cluster, repo, workdir, slotID, partition, pwhgjob)
+                jobids_check.append(checkjob)
+        except SlotIndexException as e:
+            logging.error(e)   
     if len(jobids_check):
         submit_checks(cluster, repo, workdir, partition, jobids_check, False, True)
