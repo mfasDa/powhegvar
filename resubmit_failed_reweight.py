@@ -9,7 +9,7 @@ from helpers.setup_logging import setup_logging
 from helpers.checkjob import submit_checks, submit_check_slot
 from helpers.cluster import get_cluster, get_default_partition
 from submit_powheg import submit_job
-from helpers.slurm import SlurmConfig
+from helpers.slurm import SlurmConfig, submit
 from helpers.simconfig import SimConfig
 
 class SlotIndexException(Exception):
@@ -134,6 +134,31 @@ def get_failed_slots(checkfile: str) -> CheckResults:
     return result
 
 
+def next_iteration_resubmit(repo: str, cluster: str, workdir: str, partition: str, version: str, process: str, mem: int, hours: int, scalereweight: bool, minID: int, minpdf: int, dependency: int = None) -> int:
+    executable = os.path.join(repo, "resubmit_failed_reweight.py")
+    resubmit_cmd = f"{executable} {workdir} -p {partition} -v {version} --process {process} --mem {mem} --hours {hours}"
+    if scalereweight:
+        resubmit_cmd += " --scalereweight"
+    else:
+        resubmit_cmd += f" --minID {minID} --minpdf {minpdf}"
+    resubmit_wrapper = os.path.join(workdir, "stage", "resubmit_wrapper.sh")
+    if os.path.exists(resubmit_wrapper):
+        os.remove(resubmit_wrapper)
+    with open(resubmit_wrapper, "w") as wrapperwriter:
+        wrapperwriter.write("#! /bin/bash\n")
+        wrapperwriter.write(f"export PYTHONPATH=$PYTHONPATH:{repo}\n")
+        wrapperwriter.write("echo Submitting next iteration\n")
+        wrapperwriter.write(f"{resubmit_cmd}\n")
+        wrapperwriter.close()
+    os.chmod(resubmit_wrapper, 0o755)
+    jobname = "resubmit_iteration"
+    logfile = os.path.join(workdir, "logs", "resubmit_reweight.log")
+    dependencies = []
+    if dependency is not None:
+        dependencies = [dependency]
+    return submit(resubmit_wrapper, cluster, jobname, logfile, partition, timelimit="00:10:00", dependency = dependencies)
+
+
 if __name__ == "__main__":
     repo = os.path.dirname(os.path.abspath(sys.argv[0]))
     parser = argparse.ArgumentParser("resubmit_failed_reweight.py")
@@ -141,7 +166,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--partition", metavar="PARTITION", type=str, default="default", help="Partition")
     parser.add_argument("-v", "--version", metavar="VERSION", type=str, default="FromALICE", help="POWHEG version")
     parser.add_argument("--mem", metavar="MEMORY", type=int, default=4, help="Memory request in GB (default: 4 GB)" )
-    parser.add_argument("--hours", metavar="HOURS", type=int, default=10, help="Max. numbers of hours for slot (default: 10)")
+    parser.add_argument("--hours", metavar="HOURS", type=int, default=24, help="Max. numbers of hours for slot (default: 10)")
     parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
     parser.add_argument("-t", "--test", action="store_true", help="Test mode")
     parser.add_argument("--process", metavar="PROCESS", type=str, default="dijet", help="POWHEG process")
@@ -210,4 +235,6 @@ if __name__ == "__main__":
         except SlotIndexException as e:
             logging.error(e)   
     if len(jobids_check):
-        submit_checks(cluster, repo, workdir, partition, jobids_check, False, True)
+        jobids_check = submit_checks(cluster, repo, workdir, partition, jobids_check, False, True)
+        logging.info("Submitting final check job under job ID %d", jobids_check)
+        jobid_resubmit = next_iteration_resubmit(repo, cluster, workdir, partition, args.version, args.process, args.mem, args.hours, args.scalereweight, args.minID, args.minpdf, jobids_check)
