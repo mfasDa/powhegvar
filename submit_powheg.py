@@ -6,69 +6,17 @@ import logging
 import sys
 from helpers.checkjob import submit_checks
 from helpers.cluster import get_cluster, get_default_partition
-from helpers.containerwrapper import create_containerwrapper
 from helpers.datahandler import find_pwgevents
+from helpers.modules import find_powheg_releases
 from helpers.powheg import is_valid_process
-from helpers.powhegconfig import get_energy_from_config
+from helpers.pwgsubmithandler import submit_simulation
+from helpers.resubmithandler import next_iteration_resubmit
 from helpers.setup_logging import setup_logging
-from helpers.slurm import submit_range, SlurmConfig
-from helpers.modules import find_powheg_releases, get_OSVersion
 from helpers.simconfig import SimConfig
+from helpers.slurm import SlurmConfig
 from helpers.workdir import find_index_of_input_file_range
 
 repo = os.path.dirname(os.path.abspath(sys.argv[0]))
-
-def make_powhegrunner(config: SimConfig) -> str:
-    executable = f"{repo}/powheg_runner.py"
-    workdir = os.path.join(config.workdir, f"POWHEG_{config.powhegversion}")
-    cmd = f"{executable} {workdir} -t {config.process}"
-    if not config.is_scalereweight() and not config.is_pdfreweight():
-        cmd += f" -i {config.powheginput}"
-        if config.nevents > 0:
-            cmd += f" -e {config.nevents}"
-    if config.minslot > 0:
-        cmd += f" --slotoffset {config.minslot}"
-    if len(config.gridrepository) and config.gridrepository != "NONE":
-        cmd += f" -g {config.gridrepository}"
-    if config.is_scalereweight():
-        cmd += " -s --minid 0"
-    if config.is_pdfreweight():
-        cmd += f" --minpdf {config.minpdf} --maxpdf {config.maxpdf} --minid {config.minID}"
-    logging.debug("Running POWHEG command: %s", cmd)
-    return cmd
-
-def configure_env(cluster: str, powhegversion: str) -> str:
-    executable = f"{repo}/powheg_run_in_env.sh"
-    return f"{executable} {repo} {cluster} {powhegversion}"
-
-def submit_job(simconfig: SimConfig, batchconfig: SlurmConfig, singleslot: bool = False):
-    logging.info("Submitting POWHEG release %s", simconfig.powhegversion)
-    powheg_version_string = simconfig.powhegversion
-    if "VO_ALICE@POWHEG::" in powheg_version_string:
-        powheg_version_string = powheg_version_string.replace("VO_ALICE@POWHEG::", "")
-    workdir= os.path.join(simconfig.workdir, f"POWHEG_{powheg_version_string}")
-    logdir = os.path.join(workdir, "logs")
-    if not os.path.exists(logdir):
-        os.makedirs(logdir, 0o755)
-    logfile = ""
-    if singleslot:
-        logfile = os.path.join(logdir, f"joboutput{simconfig.minslot}.log")
-    else:
-        logfile = os.path.join(logdir, "joboutput%a.log")
-    energytag = "%.1fT" %(get_energy_from_config(simconfig.powheginput)/1000) if simconfig.powheginput else "None"
-    logging.info("Running simulation for energy %s", energytag)
-    runcmd =  "%s %s" %(configure_env(batchconfig.cluster, simconfig.powhegversion), make_powhegrunner(simconfig))
-    #executable = os.path.join(repo, "run_powheg_singularity.sh")
-    #f"{executable} {batchconfig.cluster} {repo} {workdir} {simconfig.process} {simconfig.powhegversion} {simconfig.powheginput} {simconfig.minslot} {simconfig.gridrepository} {simconfig.nevents}"
-    jobname = f"pp_{simconfig.process}_{energytag}"
-    if batchconfig.cluster == "CADES" or batchconfig.cluster == "PERLMUTTER":
-        runcmd = "%s %s" %(create_containerwrapper(workdir, batchconfig.cluster, get_OSVersion(batchconfig.cluster, simconfig.powhegversion)), runcmd)
-    elif batchconfig.cluster == "B587" and "VO_ALICE" in simconfig.powhegversion:
-        # needs container also on the 587 cluster for POWHEG versions from cvmfs
-        # will use the container from ALICE, so the OS version does not really matter
-        runcmd = "%s %s" %(create_containerwrapper(workdir, batchconfig.cluster, "CentOS8"), runcmd)
-    logging.debug("Running on hosts: %s", runcmd)
-    return submit_range(runcmd, batchconfig.cluster, jobname, logfile, get_default_partition(batchconfig.cluster) if batchconfig.partition == "default" else batchconfig.partition, {"first": 0, "last": batchconfig.njobs-1}, "{}:00:00".format(batchconfig.hours), "{}G".format(batchconfig.memory))
 
 def build_workdir_for_pwhg(workdir: str, powheg_version: str) -> str:
     powheg_version_string = powheg_version
@@ -178,10 +126,13 @@ if __name__ == "__main__":
         print("Simulating with POWHEG: {}".format(releases))
     for pwhg in releases:
         simconfig.powhegversion = pwhg
-        pwhgjob = submit_job(simconfig, batchconfig)
+        pwhgjob = submit_simulation(repo, simconfig, batchconfig)
         logging.info("Job ID for POWHEG %s: %d", pwhg, pwhgjob)
 
         # submit checking job
         # must run as extra job, not guarenteed that the production job finished
-        submit_checks(cluster, repo, build_workdir_for_pwhg(args.workdir, pwhg), args.partition, [pwhgjob]) 
+        jobids_check = submit_checks(cluster, repo, build_workdir_for_pwhg(args.workdir, pwhg), args.partition, [pwhgjob]) 
+        if simconfig.is_scalereweight or simconfig.is_pdfreweight:
+            # launch automatic resubmission of failed jobs
+            jobid_resubmit = next_iteration_resubmit(repo, cluster, os.path.join(args.workdir, args.version), partition, args.version, args.process, args.mem, args.hours, args.scalereweight, args.minweightid, args.minpdf, jobids_check["final"][0])
 	

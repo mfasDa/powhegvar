@@ -53,7 +53,8 @@ def submit_check_summary(cluster: str, repo: str, workdir: str, partition: str, 
     jobname = "checksummary_pwgevents"
     return submit(runcmd, cluster, jobname, logfile, get_default_partition(cluster) if partition == "default" else partition, 0, f"{hours}:00:00", f"{mem}G", dependency)
 
-def submit_checks(cluster: str, repo: str, workdir: str, partition: str, pwhgjob: list, multi: bool = False, summaryOnly: bool = False):
+def submit_checks(cluster: str, repo: str, workdir: str, partition: str, pwhgjob: list, multi: bool = False, summaryOnly: bool = False) -> dict:
+    jobids = {}
     checkjob = []
     if not summaryOnly:
         logging.info("Launching checking chain for workdir %s (%s-job mode)", workdir, "multi" if multi else "single")
@@ -67,11 +68,14 @@ def submit_checks(cluster: str, repo: str, workdir: str, partition: str, pwhgjob
                 checkjobstring += ", "
             checkjobstring += f"{jobID}"
         logging.info("Job ID(s) for automatic checking: %s", checkjobstring)
+        jobids["intermediate"] = checkjob
     else:
         logging.info("launching only final summary job")
         checkjob = pwhgjob
     checksummaryjob = submit_check_summary(cluster, repo, workdir, partition, 2, 1, checkjob)
     logging.info("Job ID for analysing checking results: %d", checksummaryjob)
+    jobids["final"] = [checksummaryjob]
+    return jobids
 
 def submit_check_slot(cluster: str, repo: str, workdir: str, slot: int, partition: str, pwhgjob: int) -> int:
     slotworkdir = os.path.join(workdir, "%04d" %slot)
