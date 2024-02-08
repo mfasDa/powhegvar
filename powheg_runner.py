@@ -15,9 +15,10 @@ from helpers.powheg import is_valid_process
 from helpers.powhegconfig import replace_value 
 from helpers.pwgeventsparser import pwgeventsparser, pwgevents_info
 from helpers.pwsemaphore import pwsemaphore, has_semaphore
-from helpers.setup_logging import setup_logging
 from helpers.reweighting import create_config_pdfreweight, create_config_scalereweight, build_weightID_scalereweight, build_weightID_pdfreweight 
+from helpers.setup_logging import setup_logging
 from helpers.timehelpers import log_elapsed_time
+from helpers.workarchive import pack_workarchives
 
 class POWHEG_runner:
 
@@ -161,6 +162,7 @@ class POWHEG_runner:
             elif self.__run_pdfreweight():
                 self.__run_pdfreweight()
         self.__pack_grids()
+        pack_workarchives(self.__workdir, True)
         return True
 
     def __run_scalereweight(self):
@@ -384,9 +386,6 @@ class POWHEG_runner:
         if self.is_reweight():
             if not self.__workdir_has_pwgevents():
                 logging.error("Require existing pwgevents.lhe in workdir for reweight mode")
-                return
-            if self.__workdir_has_reweightevents():
-                logging.error("Found unexpected file pwgevents-rwgt.lhe for reweighting mode, processing might crash, cannot run ...")
                 return
             if self.__workdir_has_powheginput() and not self.__workdir_has_file("powheg_base.input"):
                 self.__stage_powheginput("base")
