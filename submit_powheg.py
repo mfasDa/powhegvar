@@ -134,5 +134,5 @@ if __name__ == "__main__":
         jobids_check = submit_checks(cluster, repo, build_workdir_for_pwhg(args.workdir, pwhg), args.partition, [pwhgjob]) 
         if simconfig.is_scalereweight or simconfig.is_pdfreweight:
             # launch automatic resubmission of failed jobs
-            jobid_resubmit = next_iteration_resubmit(repo, cluster, os.path.join(args.workdir, args.version), partition, args.version, args.process, args.mem, args.hours, args.scalereweight, args.minweightid, args.minpdf, jobids_check["final"][0])
+            jobid_resubmit = next_iteration_resubmit(repo, cluster, os.path.join(args.workdir, "POWHEG_{}".format(args.version)), partition, args.version, args.process, args.mem, args.hours, args.scalereweight, args.minweightid, args.minpdf, jobids_check["final"][0])
 	
