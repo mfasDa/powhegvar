@@ -6,9 +6,10 @@ import os
 import shutil
 import sys
 
-from submit_powheg import submit_job
 from helpers.checkjob import submit_checks, submit_check_slot
 from helpers.cluster import get_cluster, get_default_partition
+from helpers.pwgsubmithandler import submit_simulation, UninitException
+from helpers.resubmithandler import get_incomplete_slots
 from helpers.setup_logging import setup_logging
 from helpers.slurm import SlurmConfig
 from helpers.simconfig import SimConfig
@@ -35,9 +36,9 @@ def parse_powheg_config(workdir: str, slot: int) ->SimConfig:
             if line.find("Running in environment:") == 0:
                 line = line.replace("Running in environment: ", "")
                 tokens = line.split(" ")
-                indextoken = 2
+                indextoken = 1
                 while indextoken < len(tokens):
-                    if indextoken == 2:
+                    if tokens[indextoken] == "-i":
                         config.powheginput = tokens[indextoken]
                     elif tokens[indextoken] == "-g":
                         config.gridrepository = tokens[indextoken+1]
@@ -52,35 +53,11 @@ def parse_powheg_config(workdir: str, slot: int) ->SimConfig:
                         indextoken += 1
     return config
 
-def submit_slot(workdir: str, slot: int, simparams: SimConfig, slurparams: SlurmConfig):
+def submit_slot(repo: str, workdir: str, slot: int, simparams: SimConfig, slurparams: SlurmConfig):
     logging.info("Resubmitting slot: %d", slot)
     clean_slotdir(os.path.join(workdir, "%04d" %slot))
-    return submit_job(simparams, slurparams, True)
+    return submit_simulation(repo, simparams, slurparams, True)
 
-def get_failed_slots(checkfile: str) -> list:
-    failedslots = []
-    markerstart = "Incomplete pwgevents.lhe files:"
-    markerend = "----------------------------------------"
-    with open(checkfile, "r") as checkreader:
-        startfailed = False
-        for line in checkreader:
-            line = line.replace("\n", "")
-            line = line.replace("[INFO]: ", "")
-            if startfailed:
-                if markerend in line:
-                    startfailed = False
-                    break
-                else:
-                    slotdir = os.path.dirname(line)
-                    slotID = os.path.basename(slotdir)
-                    if slotID.isdigit():
-                        logging.info("Found slot: %s", slotID)
-                        failedslots.append(int(slotID))
-            else:
-                if markerstart in line:
-                    startfailed = True
-        checkreader.close()
-    return sorted(failedslots)
 
 if __name__ == "__main__":
     repo = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -110,10 +87,10 @@ if __name__ == "__main__":
     workdir = os.path.abspath(args.workdir)
     checkfile = os.path.join(workdir, "checksummary_pwgevents.log")
     if not os.path.exists(checkfile):
-        logging.error("Working directory %s does not provide a checksummary_pwgevents.log")
+        logging.error("Working directory %s does not provide a checksummary_pwgevents.log", workdir)
         sys.exit(1)
 
-    slots = get_failed_slots(checkfile)
+    slots = get_incomplete_slots(checkfile)
     if not len(slots):
         logging.error("No failed slot found in %s, no slots to be resubmitted", checkfile)
         sys.exit(1)
@@ -143,9 +120,12 @@ if __name__ == "__main__":
             simconfig.powhegversion = args.version
         simconfig.print()
         if not args.test:
-            pwhgjob = submit_slot(workdir, slot, simconfig, batchconfig)
-            checkjob = submit_check_slot(cluster, repo, workdir, slot, partition, pwhgjob)
-            jobids_check.append(checkjob)
+            try:
+                pwhgjob = submit_slot(repo, workdir, slot, simconfig, batchconfig)
+                checkjob = submit_check_slot(cluster, repo, workdir, slot, partition, pwhgjob)
+                jobids_check.append(checkjob)
+            except UninitException as e:
+                logging.error("Failed submitting slot: %s", e)
         else:
             # test mode: try only parsing the simulation configuration
             simconfig = parse_powheg_config(workdir, slot)

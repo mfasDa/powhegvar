@@ -218,8 +218,8 @@ class POWHEG_runner:
         while currentpdf <= self.__maxpdf:
             self.__list_workdir()
             if self.__workdir_has_reweightevents():
-                logging.error("pwgevents-reweight.lhe found in workdir %s in weighting mode, removing ...", self.__workdir)
-                os.remove(os.path.join(self.workdir, "pwgevents-reweight.lhe"))
+                logging.error("pwgevents-rwgt.lhe found in workdir %s in weighting mode, removing ...", self.__workdir)
+                os.remove(os.path.join(self.workdir, "pwgevents-rwgt.lhe"))
             if self.__workdir_has_pwgevents():
                 currentpwgevents = self.__decode_pwgfile(os.path.join(self.workdir, "pwgevents.lhe"))
             foundweight = currentpwgevents.find_weight("{}".format(currentid))

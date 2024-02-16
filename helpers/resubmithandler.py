@@ -115,6 +115,30 @@ def get_failed_slots(checkfile: str) -> CheckResults:
         checkreader.close()
     return result
 
+def get_incomplete_slots(checkfile: str) -> list:
+    failedslots = []
+    markerstart = "Incomplete pwgevents.lhe files:"
+    markerend = "----------------------------------------"
+    with open(checkfile, "r") as checkreader:
+        startfailed = False
+        for line in checkreader:
+            line = line.replace("\n", "")
+            line = line.replace("[INFO]: ", "")
+            if startfailed:
+                if markerend in line:
+                    startfailed = False
+                    break
+                else:
+                    slotdir = os.path.dirname(line)
+                    slotID = os.path.basename(slotdir)
+                    if slotID.isdigit():
+                        logging.info("Found slot: %s", slotID)
+                        failedslots.append(int(slotID))
+            else:
+                if markerstart in line:
+                    startfailed = True
+        checkreader.close()
+    return sorted(failedslots)
 
 def next_iteration_resubmit(repo: str, cluster: str, workdir: str, partition: str, version: str, process: str, mem: int, hours: int, scalereweight: bool, minID: int, minpdf: int, dependency: int = None) -> int:
     executable = os.path.join(repo, "resubmit_failed_reweight.py")
