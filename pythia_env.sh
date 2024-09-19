@@ -37,7 +37,8 @@ elif [ "$CLUSTER" == "PERLMUTTER" ]; then
         echo "Using PYTHIA from alidist ..."
         source /global/homes/m/mfasel/alice_setenv
         ALIENV=`which alienv`
-        eval `$ALIENV --no-refresh printenv POWHEG/latest` 
+        eval `$ALIENV --no-refresh printenv rootpythia8/latest fastjet/latest` 
+        alienv list 
     fi
     let "DOMODULE=0"
 else 
