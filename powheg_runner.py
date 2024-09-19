@@ -162,7 +162,9 @@ class POWHEG_runner:
             elif self.__run_pdfreweight():
                 self.__run_pdfreweight()
         self.__pack_grids()
-        pack_workarchives(self.__workdir, True)
+        if not self.is_parallelstage():
+            # Pack archives, but not in parallelstage, as in parallelstage the inputs are needed consecutively
+            pack_workarchives(self.__workdir, True)
         return True
 
     def __run_scalereweight(self):
